@@ -12,16 +12,29 @@ const __dirname = path.dirname(__filename);
 
 const IS_VERCEL = !!process.env.VERCEL;
 
-// On Vercel: use /tmp for ephemeral file ops; templates come from the committed repo files
-// Local: use the project root
+// On Vercel: use /tmp for ephemeral file ops; deployed templates are read-only
+// Local: everything lives in the project root
 const WORK_DIR   = IS_VERCEL ? "/tmp" : path.resolve(__dirname, "..");
-const TEMPLATES_DIR = path.resolve(__dirname, "../templates");
+
+// TEMPLATES_READ_DIR = where pre-built templates live (read-only on Vercel)
+// TEMPLATES_WRITE_DIR = where we write custom/new templates (writable)
+const TEMPLATES_READ_DIR  = path.resolve(__dirname, "../templates");
+const TEMPLATES_WRITE_DIR = IS_VERCEL ? "/tmp/templates" : TEMPLATES_READ_DIR;
+
+// Helper: find a template file — check writable dir first, then read-only dir
+function templatePath(filename) {
+  const writePath = path.join(TEMPLATES_WRITE_DIR, filename);
+  if (fs.existsSync(writePath)) return writePath;
+  return path.join(TEMPLATES_READ_DIR, filename);
+}
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use("/outputs",   express.static(path.join(WORK_DIR, "outputs")));
-app.use("/templates", express.static(TEMPLATES_DIR));
+// Serve templates from BOTH dirs (writable first so custom overrides built-in)
+app.use("/templates", express.static(TEMPLATES_WRITE_DIR));
+app.use("/templates", express.static(TEMPLATES_READ_DIR));
 
 const upload = multer({ dest: path.join(WORK_DIR, "uploads/") });
 
@@ -29,9 +42,13 @@ const upload = multer({ dest: path.join(WORK_DIR, "uploads/") });
 for (const d of [
   path.join(WORK_DIR, "uploads"),
   path.join(WORK_DIR, "outputs"),
-  TEMPLATES_DIR,
+  TEMPLATES_WRITE_DIR,
 ]) {
   if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+}
+// Don't mkdir TEMPLATES_READ_DIR on Vercel — it's the deployed read-only dir
+if (!IS_VERCEL && !fs.existsSync(TEMPLATES_READ_DIR)) {
+  fs.mkdirSync(TEMPLATES_READ_DIR, { recursive: true });
 }
 
 // ============================================================
@@ -140,7 +157,7 @@ async function generateTemplate(config) {
   </svg>`;
 
   const buf = await sharp(Buffer.from(svg)).ensureAlpha().png().toBuffer();
-  const tpath = path.join(TEMPLATES_DIR, `${config.id}.png`);
+  const tpath = path.join(TEMPLATES_WRITE_DIR, `${config.id}.png`);
   fs.writeFileSync(tpath, buf);
   return tpath;
 }
@@ -161,13 +178,22 @@ function computeArtZone(config) {
   console.log("Generating templates...");
 
   // Restore user-created formats from saved meta files
-  const metaFiles = fs.readdirSync(TEMPLATES_DIR).filter(f => f.endsWith("_meta.json"));
-  for (const mf of metaFiles) {
-    const meta = JSON.parse(fs.readFileSync(path.join(TEMPLATES_DIR, mf), "utf8"));
+  // Scan both dirs for meta files
+  const metaDirs = IS_VERCEL ? [TEMPLATES_WRITE_DIR, TEMPLATES_READ_DIR] : [TEMPLATES_WRITE_DIR];
+  const seenMeta = new Set();
+  const allMetaFiles = [];
+  for (const dir of metaDirs) {
+    if (!fs.existsSync(dir)) continue;
+    for (const f of fs.readdirSync(dir).filter(f => f.endsWith("_meta.json"))) {
+      if (!seenMeta.has(f)) { seenMeta.add(f); allMetaFiles.push(path.join(dir, f)); }
+    }
+  }
+  for (const mfPath of allMetaFiles) {
+    const meta = JSON.parse(fs.readFileSync(mfPath, "utf8"));
     if (!meta.userCreated) continue;
-    const id = mf.replace("_meta.json", "");
-    if (BANNER_CONFIGS.find(c => c.id === id)) continue; // already exists
-    const framePath = path.join(TEMPLATES_DIR, `${id}_custom.png`);
+    const id = path.basename(mfPath).replace("_meta.json", "");
+    if (BANNER_CONFIGS.find(c => c.id === id)) continue;
+    const framePath = templatePath(`${id}_custom.png`);
     if (!fs.existsSync(framePath)) continue;
 
     const overallRatio = closestSupportedRatio(meta.width, meta.height);
@@ -196,9 +222,9 @@ function computeArtZone(config) {
   // Generate default templates for built-in configs
   for (const c of BANNER_CONFIGS) {
     if (c._userCreated) continue; // already loaded above
-    const customPath = path.join(TEMPLATES_DIR, `${c.id}_custom.png`);
+    const customPath = templatePath(`${c.id}_custom.png`);
     if (fs.existsSync(customPath)) {
-      const metaPath = path.join(TEMPLATES_DIR, `${c.id}_meta.json`);
+      const metaPath = templatePath(`${c.id}_meta.json`);
       if (fs.existsSync(metaPath)) {
         const meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
         c._artZone = meta.artZone;
@@ -327,7 +353,7 @@ app.post("/api/formats/new", upload.single("frame"), async (req, res) => {
 
     if (!artZone) {
       // Save temp file for AI detection
-      const tempPath = path.join(TEMPLATES_DIR, `${id}_temp.png`);
+      const tempPath = path.join(TEMPLATES_WRITE_DIR, `${id}_temp.png`);
       fs.writeFileSync(tempPath, pngBuffer);
       artZone = await detectArtZoneWithAI(tempPath, { width, height });
       method = "ai";
@@ -368,9 +394,9 @@ app.post("/api/formats/new", upload.single("frame"), async (req, res) => {
     };
 
     // Save the frame PNG and metadata
-    const framePath = path.join(TEMPLATES_DIR, `${id}_custom.png`);
+    const framePath = path.join(TEMPLATES_WRITE_DIR, `${id}_custom.png`);
     fs.writeFileSync(framePath, pngBuffer);
-    const metaPath = path.join(TEMPLATES_DIR, `${id}_meta.json`);
+    const metaPath = path.join(TEMPLATES_WRITE_DIR, `${id}_meta.json`);
     fs.writeFileSync(metaPath, JSON.stringify({
       artZone,
       label,
@@ -406,8 +432,8 @@ app.delete("/api/formats/:id", (req, res) => {
   if (idx === -1) return res.status(404).json({ error: "User-created format not found" });
 
   const config = BANNER_CONFIGS[idx];
-  const framePath = path.join(TEMPLATES_DIR, `${config.id}_custom.png`);
-  const metaPath  = path.join(TEMPLATES_DIR, `${config.id}_meta.json`);
+  const framePath = path.join(TEMPLATES_WRITE_DIR, `${config.id}_custom.png`);
+  const metaPath  = path.join(TEMPLATES_WRITE_DIR, `${config.id}_meta.json`);
   if (fs.existsSync(framePath)) fs.unlinkSync(framePath);
   if (fs.existsSync(metaPath))  fs.unlinkSync(metaPath);
   BANNER_CONFIGS.splice(idx, 1);
@@ -438,10 +464,10 @@ app.post("/api/templates/:id/upload", upload.single("template"), async (req, res
     let artZone = await detectTransparentRegion(pngBuffer, config.width, config.height);
 
     if (artZone) {
-      const customPath = path.join(TEMPLATES_DIR, `${config.id}_custom.png`);
+      const customPath = path.join(TEMPLATES_WRITE_DIR, `${config.id}_custom.png`);
       fs.writeFileSync(customPath, pngBuffer);
     } else {
-      const tempPath = path.join(TEMPLATES_DIR, `${config.id}_temp.png`);
+      const tempPath = path.join(TEMPLATES_WRITE_DIR, `${config.id}_temp.png`);
       fs.writeFileSync(tempPath, pngBuffer);
 
       artZone = await detectArtZoneWithAI(tempPath, config);
@@ -454,14 +480,14 @@ app.post("/api/templates/:id/upload", upload.single("template"), async (req, res
         .composite([{ input: punch, left: artZone.x, top: artZone.y, blend: "dest-out" }])
         .png().toBuffer();
 
-      const customPath = path.join(TEMPLATES_DIR, `${config.id}_custom.png`);
+      const customPath = path.join(TEMPLATES_WRITE_DIR, `${config.id}_custom.png`);
       fs.writeFileSync(customPath, frameWithCutout);
       fs.unlinkSync(tempPath);
     }
 
     config._artZone = artZone;
     config._customTemplate = true;
-    const metaPath = path.join(TEMPLATES_DIR, `${config.id}_meta.json`);
+    const metaPath = path.join(TEMPLATES_WRITE_DIR, `${config.id}_meta.json`);
     fs.writeFileSync(metaPath, JSON.stringify({ artZone }, null, 2));
     fs.unlinkSync(req.file.path);
 
@@ -476,8 +502,8 @@ app.delete("/api/templates/:id/custom", (req, res) => {
   const config = BANNER_CONFIGS.find(c => c.id === req.params.id);
   if (!config) return res.status(404).json({ error: "Banner not found" });
 
-  const customPath = path.join(TEMPLATES_DIR, `${config.id}_custom.png`);
-  const metaPath   = path.join(TEMPLATES_DIR, `${config.id}_meta.json`);
+  const customPath = path.join(TEMPLATES_WRITE_DIR, `${config.id}_custom.png`);
+  const metaPath   = path.join(TEMPLATES_WRITE_DIR, `${config.id}_meta.json`);
   if (fs.existsSync(customPath)) fs.unlinkSync(customPath);
   if (fs.existsSync(metaPath))   fs.unlinkSync(metaPath);
   config._customTemplate = false;
@@ -636,8 +662,8 @@ You are RECOMPOSING the artwork for a new shape, the way a designer would create
         .png().toBuffer();
 
       const tplPath = config._customTemplate
-        ? path.join(TEMPLATES_DIR, `${id}_custom.png`)
-        : path.join(TEMPLATES_DIR, `${id}.png`);
+        ? templatePath(`${id}_custom.png`)
+        : templatePath(`${id}.png`);
       const frameOverlay = fs.readFileSync(tplPath);
       const banner = await sharp(artLayer)
         .composite([{ input: frameOverlay, left: 0, top: 0 }])
