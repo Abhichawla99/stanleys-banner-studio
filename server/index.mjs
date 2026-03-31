@@ -156,10 +156,46 @@ function computeArtZone(config) {
   };
 }
 
-// Generate templates on startup
+// Generate templates + restore user-created formats on startup
 (async () => {
   console.log("Generating templates...");
+
+  // Restore user-created formats from saved meta files
+  const metaFiles = fs.readdirSync(TEMPLATES_DIR).filter(f => f.endsWith("_meta.json"));
+  for (const mf of metaFiles) {
+    const meta = JSON.parse(fs.readFileSync(path.join(TEMPLATES_DIR, mf), "utf8"));
+    if (!meta.userCreated) continue;
+    const id = mf.replace("_meta.json", "");
+    if (BANNER_CONFIGS.find(c => c.id === id)) continue; // already exists
+    const framePath = path.join(TEMPLATES_DIR, `${id}_custom.png`);
+    if (!fs.existsSync(framePath)) continue;
+
+    const overallRatio = closestSupportedRatio(meta.width, meta.height);
+    BANNER_CONFIGS.push({
+      id,
+      label: meta.label || id,
+      width: meta.width,
+      height: meta.height,
+      ratio: overallRatio,
+      category: "Custom",
+      logo: "none",
+      artZone: {
+        xPct: meta.artZone.x / meta.width,
+        yPct: meta.artZone.y / meta.height,
+        wPct: meta.artZone.width / meta.width,
+        hPct: meta.artZone.height / meta.height,
+      },
+      layoutHint: `Art zone is at (${meta.artZone.x}, ${meta.artZone.y}), size ${meta.artZone.width}×${meta.artZone.height}. The remaining area around the art zone contains the banner frame elements. Place all important content inside the art zone.`,
+      _artZone: meta.artZone,
+      _customTemplate: true,
+      _userCreated: true,
+    });
+    console.log(`  ✓ ${meta.label || id} (${meta.width}×${meta.height}) [user-created]`);
+  }
+
+  // Generate default templates for built-in configs
   for (const c of BANNER_CONFIGS) {
+    if (c._userCreated) continue; // already loaded above
     const customPath = path.join(TEMPLATES_DIR, `${c.id}_custom.png`);
     if (fs.existsSync(customPath)) {
       const metaPath = path.join(TEMPLATES_DIR, `${c.id}_meta.json`);
@@ -193,6 +229,7 @@ app.get("/api/banners", (req, res) => {
     category: c.category,
     templateUrl: c._customTemplate ? `/templates/${c.id}_custom.png` : `/templates/${c.id}.png`,
     isCustom: !!c._customTemplate,
+    isUserCreated: !!c._userCreated,
   })));
 });
 
@@ -255,6 +292,128 @@ async function detectTransparentRegion(pngBuffer, w, h) {
   if (transparentCount < (w * h * 0.05)) return null;
   return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
 }
+
+// POST /api/formats/new — create a brand new format by uploading a frame
+app.post("/api/formats/new", upload.single("frame"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+  const label = req.body.label?.trim();
+  if (!label) return res.status(400).json({ error: "Name is required" });
+
+  try {
+    // Read the image to get its actual dimensions
+    const meta = await sharp(req.file.path).metadata();
+    const width = meta.width;
+    const height = meta.height;
+
+    // Create a stable ID from the label
+    const id = label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+    if (BANNER_CONFIGS.find(c => c.id === id)) {
+      return res.status(400).json({ error: `A format called "${label}" already exists` });
+    }
+
+    // Render to PNG at detected dimensions, preserving transparency
+    const isSvg = req.file.originalname?.toLowerCase().endsWith(".svg") || req.file.mimetype === "image/svg+xml";
+    let pngBuffer;
+    if (isSvg) {
+      pngBuffer = await sharp(fs.readFileSync(req.file.path), { density: 150 })
+        .resize(width, height, { fit: "fill" }).ensureAlpha().png().toBuffer();
+    } else {
+      pngBuffer = await sharp(req.file.path).ensureAlpha().png().toBuffer();
+    }
+
+    // Try transparent region detection first, fall back to AI
+    let artZone = await detectTransparentRegion(pngBuffer, width, height);
+    let method = "transparency";
+
+    if (!artZone) {
+      // Save temp file for AI detection
+      const tempPath = path.join(TEMPLATES_DIR, `${id}_temp.png`);
+      fs.writeFileSync(tempPath, pngBuffer);
+      artZone = await detectArtZoneWithAI(tempPath, { width, height });
+      method = "ai";
+
+      // Punch transparent hole
+      const punch = await sharp({
+        create: { width: artZone.width, height: artZone.height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
+      }).png().toBuffer();
+      pngBuffer = await sharp(pngBuffer)
+        .composite([{ input: punch, left: artZone.x, top: artZone.y, blend: "dest-out" }])
+        .png().toBuffer();
+      fs.unlinkSync(tempPath);
+    }
+
+    // Figure out the closest supported ratio for the art zone
+    const artRatio = closestSupportedRatio(artZone.width, artZone.height);
+    const overallRatio = closestSupportedRatio(width, height);
+
+    // Build the config
+    const config = {
+      id,
+      label,
+      width,
+      height,
+      ratio: overallRatio,
+      category: "Custom",
+      logo: "none",
+      artZone: {
+        xPct: artZone.x / width,
+        yPct: artZone.y / height,
+        wPct: artZone.width / width,
+        hPct: artZone.height / height,
+      },
+      layoutHint: `Art zone is at (${artZone.x}, ${artZone.y}), size ${artZone.width}×${artZone.height}. The remaining area around the art zone contains the banner frame elements (logos, text bars, branding). Place all important content (faces, titles, characters) inside the art zone. Fill the areas that will be covered by the frame with expendable background only.`,
+      _artZone: artZone,
+      _customTemplate: true,
+      _userCreated: true,
+    };
+
+    // Save the frame PNG and metadata
+    const framePath = path.join(TEMPLATES_DIR, `${id}_custom.png`);
+    fs.writeFileSync(framePath, pngBuffer);
+    const metaPath = path.join(TEMPLATES_DIR, `${id}_meta.json`);
+    fs.writeFileSync(metaPath, JSON.stringify({
+      artZone,
+      label,
+      width,
+      height,
+      userCreated: true,
+    }, null, 2));
+
+    BANNER_CONFIGS.push(config);
+    fs.unlinkSync(req.file.path);
+
+    console.log(`[NEW FORMAT] ${label} (${width}×${height}), art zone: ${artZone.width}×${artZone.height} via ${method}`);
+
+    res.json({
+      success: true,
+      id,
+      label,
+      width,
+      height,
+      artZone,
+      method,
+      templateUrl: `/templates/${id}_custom.png`,
+    });
+  } catch (err) {
+    console.error("[NEW FORMAT] Error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/formats/:id — delete a user-created format
+app.delete("/api/formats/:id", (req, res) => {
+  const idx = BANNER_CONFIGS.findIndex(c => c.id === req.params.id && c._userCreated);
+  if (idx === -1) return res.status(404).json({ error: "User-created format not found" });
+
+  const config = BANNER_CONFIGS[idx];
+  const framePath = path.join(TEMPLATES_DIR, `${config.id}_custom.png`);
+  const metaPath  = path.join(TEMPLATES_DIR, `${config.id}_meta.json`);
+  if (fs.existsSync(framePath)) fs.unlinkSync(framePath);
+  if (fs.existsSync(metaPath))  fs.unlinkSync(metaPath);
+  BANNER_CONFIGS.splice(idx, 1);
+
+  res.json({ success: true, deleted: config.id });
+});
 
 app.post("/api/templates/:id/upload", upload.single("template"), async (req, res) => {
   const config = BANNER_CONFIGS.find(c => c.id === req.params.id);
@@ -373,40 +532,37 @@ app.post("/api/generate", upload.single("art"), async (req, res) => {
   send({ type: "start", runId, total: selectedIds.length });
 
   const results = [];
-  const defaultPrompt = `You are an expert creative director at a top advertising agency, specializing in out-of-home and digital banner adaptation for major entertainment brands.
+  const defaultPrompt = `You are a senior art director redesigning a piece of key art for a {{RATIO}} banner ({{ART_WIDTH}}×{{ART_HEIGHT}} px).
 
-INPUT: A piece of key art (movie poster, show artwork, or promotional image).
-OUTPUT: A recomposed version of this artwork optimized for a {{RATIO}} banner.
-
-=== BANNER OVERLAY ZONES (DO NOT place important content here) ===
+=== SAFE ZONES ===
+The final banner will have a frame overlaid on top. These areas will be PARTIALLY COVERED:
 {{LAYOUT}}
+Only put expendable background in those zones — skies, gradients, blurred texture. All important content (faces, titles, logos, characters) MUST be inside the safe area that remains visible.
 
-=== CREATIVE DIRECTION ===
+=== YOUR JOB ===
+You are RECOMPOSING the artwork for a new shape, the way a designer would create an alternate campaign layout. You are NOT resizing or cropping.
 
-1. ANALYZE the source art:
-   - Identify the hero subject(s), their pose, scale, and position
-   - Identify title treatment / logo lockup and its placement
-   - Note the mood, lighting direction, color temperature, and atmosphere
-   - Catalog supporting elements: secondary characters, props, environmental details
+1. READ every piece of text in the source art — titles, taglines, dates, credits, logos. Note the EXACT spelling, capitalisation, font style, weight, colour, and visual treatment (shadows, outlines, gradients, effects).
 
-2. RECOMPOSE for {{RATIO}}:
-   - This is a REDESIGN, not a resize. Think of it as creating an alternate layout of the same campaign.
-   - The hero subject must be COMPLETE — full head, full body if shown in original, no awkward crops on faces, hands, or key features.
-   - Position the hero and title in the SAFE ZONE (away from overlay areas described above).
-   - Use the overlay zones for atmospheric bleed: extend skies, textures, environmental effects (rain, fog, sparks, gradients). These areas will be partially covered by the banner frame, so only expendable visual information should go there.
+2. REDESIGN the layout for {{RATIO}}:
+   - The hero subject must be COMPLETE — full head, full body if shown, no awkward crops.
+   - If the original title fits on one line but the new shape is too narrow or too short, REFLOW the text: split across two lines, stack it vertically, move it to a different area — whatever a designer would do. You may resize the title, reposition it, split it across top and bottom, or center it with effects that match the artwork's mood.
+   - Use the SAME font style, the SAME colour, the SAME visual effects. If the title had a metallic gradient and drop shadow, the reflowed title must also have a metallic gradient and drop shadow.
+   - Place characters, title, and key elements in the SAFE ZONE where they will NOT be covered by the banner frame.
+   - Fill the overlay zones with atmospheric extension: continue the sky, fog, sparks, rain, environmental texture from the original.
 
-3. VISUAL FIDELITY:
-   - Match the original's art style exactly — if photorealistic, stay photorealistic; if illustrated, stay illustrated.
-   - Preserve the exact color palette, contrast ratio, and lighting mood.
-   - Maintain text rendering quality — title/logo text must be sharp, correctly spelled, and faithfully reproduced.
-   - The output must look like an original asset from the same campaign, not an AI adaptation.
+3. SACRED RULES — things you must NEVER change:
+   - The SPELLING of every word. If it says "Lord of the Rings" you output "Lord of the Rings" — letter for letter, no rewording.
+   - The VISUAL IDENTITY — same art style (photorealistic stays photorealistic, illustrated stays illustrated), same colour palette, same lighting mood, same contrast.
+   - The CONTENT — never add characters, objects, logos, or text that are not in the original. Never remove elements that are in the original.
 
 4. ABSOLUTE RULES:
-   - NEVER add characters, objects, text, or elements not present in the original.
+   - NEVER change, rephrase, abbreviate, or misspell ANY text from the original artwork.
    - NEVER stretch, squash, or distort any element.
    - NEVER add borders, letterboxing, or pillarboxing.
-   - NEVER leave dead space — the full {{RATIO}} canvas must be utilized.
-   - NEVER crop the hero subject's face or head.`;
+   - NEVER leave dead space — fill the full {{RATIO}} canvas.
+   - NEVER crop the hero subject's face or head.
+   - NEVER place important content in the overlay zones described above — it WILL be covered.`;
 
   for (const id of selectedIds) {
     const config = BANNER_CONFIGS.find(c => c.id === id);

@@ -2,40 +2,37 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 
 const API = ''
 
-const DEFAULT_PROMPT = `You are an expert creative director at a top advertising agency, specializing in out-of-home and digital banner adaptation for major entertainment brands.
+const DEFAULT_PROMPT = `You are a senior art director redesigning a piece of key art for a {{RATIO}} banner ({{ART_WIDTH}}×{{ART_HEIGHT}} px).
 
-INPUT: A piece of key art (movie poster, show artwork, or promotional image).
-OUTPUT: A recomposed version of this artwork optimized for a {{RATIO}} banner.
-
-=== BANNER OVERLAY ZONES (DO NOT place important content here) ===
+=== SAFE ZONES ===
+The final banner will have a frame overlaid on top. These areas will be PARTIALLY COVERED:
 {{LAYOUT}}
+Only put expendable background in those zones — skies, gradients, blurred texture. All important content (faces, titles, logos, characters) MUST be inside the safe area that remains visible.
 
-=== CREATIVE DIRECTION ===
+=== YOUR JOB ===
+You are RECOMPOSING the artwork for a new shape, the way a designer would create an alternate campaign layout. You are NOT resizing or cropping.
 
-1. ANALYZE the source art:
-   - Identify the hero subject(s), their pose, scale, and position
-   - Identify title treatment / logo lockup and its placement
-   - Note the mood, lighting direction, color temperature, and atmosphere
-   - Catalog supporting elements: secondary characters, props, environmental details
+1. READ every piece of text in the source art — titles, taglines, dates, credits, logos. Note the EXACT spelling, capitalisation, font style, weight, colour, and visual treatment (shadows, outlines, gradients, effects).
 
-2. RECOMPOSE for {{RATIO}}:
-   - This is a REDESIGN, not a resize. Think of it as creating an alternate layout of the same campaign.
-   - The hero subject must be COMPLETE — full head, full body if shown in original, no awkward crops on faces, hands, or key features.
-   - Position the hero and title in the SAFE ZONE (away from overlay areas described above).
-   - Use the overlay zones for atmospheric bleed: extend skies, textures, environmental effects (rain, fog, sparks, gradients). These areas will be partially covered by the banner frame, so only expendable visual information should go there.
+2. REDESIGN the layout for {{RATIO}}:
+   - The hero subject must be COMPLETE — full head, full body if shown, no awkward crops.
+   - If the original title fits on one line but the new shape is too narrow or too short, REFLOW the text: split across two lines, stack it vertically, move it to a different area — whatever a designer would do. You may resize the title, reposition it, split it across top and bottom, or center it with effects that match the artwork's mood.
+   - Use the SAME font style, the SAME colour, the SAME visual effects. If the title had a metallic gradient and drop shadow, the reflowed title must also have a metallic gradient and drop shadow.
+   - Place characters, title, and key elements in the SAFE ZONE where they will NOT be covered by the banner frame.
+   - Fill the overlay zones with atmospheric extension: continue the sky, fog, sparks, rain, environmental texture from the original.
 
-3. VISUAL FIDELITY:
-   - Match the original's art style exactly — if photorealistic, stay photorealistic; if illustrated, stay illustrated.
-   - Preserve the exact color palette, contrast ratio, and lighting mood.
-   - Maintain text rendering quality — title/logo text must be sharp, correctly spelled, and faithfully reproduced.
-   - The output must look like an original asset from the same campaign, not an AI adaptation.
+3. SACRED RULES — things you must NEVER change:
+   - The SPELLING of every word. If it says "Lord of the Rings" you output "Lord of the Rings" — letter for letter, no rewording.
+   - The VISUAL IDENTITY — same art style (photorealistic stays photorealistic, illustrated stays illustrated), same colour palette, same lighting mood, same contrast.
+   - The CONTENT — never add characters, objects, logos, or text that are not in the original. Never remove elements that are in the original.
 
 4. ABSOLUTE RULES:
-   - NEVER add characters, objects, text, or elements not present in the original.
+   - NEVER change, rephrase, abbreviate, or misspell ANY text from the original artwork.
    - NEVER stretch, squash, or distort any element.
    - NEVER add borders, letterboxing, or pillarboxing.
-   - NEVER leave dead space — the full {{RATIO}} canvas must be utilized.
-   - NEVER crop the hero subject's face or head.`
+   - NEVER leave dead space — fill the full {{RATIO}} canvas.
+   - NEVER crop the hero subject's face or head.
+   - NEVER place important content in the overlay zones described above — it WILL be covered.`
 
 const MODELS = [
   { id: 'gemini-3.1-flash-image-preview', label: 'Nano Banana 2', desc: 'Fast' },
@@ -57,7 +54,10 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [uploadingTemplate, setUploadingTemplate] = useState(null)
   const [selectedResult, setSelectedResult] = useState(null)
+  const [addingFormat, setAddingFormat] = useState(false)
+  const [newFormatName, setNewFormatName] = useState('')
   const fileRef = useRef()
+  const newFormatRef = useRef()
   const templateRefs = useRef({})
   const resultsRef = useRef()
 
@@ -85,6 +85,32 @@ export default function App() {
 
   const revertTemplate = async (bannerId) => {
     await fetch(`${API}/api/templates/${bannerId}/custom`, { method: 'DELETE' })
+    loadBanners()
+  }
+
+  const addFormat = async (file) => {
+    if (!file || !newFormatName.trim()) return
+    setAddingFormat(true)
+    const form = new FormData()
+    form.append('frame', file)
+    form.append('label', newFormatName.trim())
+    try {
+      const res = await fetch(`${API}/api/formats/new`, { method: 'POST', body: form })
+      const data = await res.json()
+      if (data.success) {
+        loadBanners()
+        setNewFormatName('')
+        setSelected(prev => [...prev, data.id])
+      } else {
+        alert(data.error || 'Failed to add format')
+      }
+    } catch (e) { alert('Failed: ' + e.message) }
+    setAddingFormat(false)
+  }
+
+  const deleteFormat = async (id) => {
+    await fetch(`${API}/api/formats/${id}`, { method: 'DELETE' })
+    setSelected(s => s.filter(x => x !== id))
     loadBanners()
   }
 
@@ -240,6 +266,7 @@ export default function App() {
                         <span className="format-name">{b.label}</span>
                         <span className="format-spec">{b.width}×{b.height}</span>
                         <span className="format-ratio">{b.ratio}</span>
+                        {b.isUserCreated && <span className="tag-custom">Custom</span>}
                       </div>
                     </div>
                     <div className="format-actions">
@@ -248,15 +275,46 @@ export default function App() {
                       <button className="ghost-btn" onClick={() => templateRefs.current[b.id]?.click()}>
                         {uploadingTemplate === b.id ? '···' : b.isCustom ? 'Replace' : 'Template'}
                       </button>
-                      {b.isCustom && (
+                      {b.isCustom && !b.isUserCreated && (
                         <>
                           <span className="tag-custom">Custom</span>
                           <button className="ghost-btn warn" onClick={() => revertTemplate(b.id)}>×</button>
                         </>
                       )}
+                      {b.isUserCreated && (
+                        <button className="ghost-btn warn" onClick={() => deleteFormat(b.id)}>×</button>
+                      )}
                     </div>
                   </div>
                 ))}
+
+                {/* Add New Format */}
+                <div className="new-format-row">
+                  <input
+                    className="new-format-input"
+                    type="text"
+                    placeholder="Format name..."
+                    value={newFormatName}
+                    onChange={(e) => setNewFormatName(e.target.value)}
+                  />
+                  <input
+                    type="file"
+                    accept="image/*,.svg"
+                    hidden
+                    ref={newFormatRef}
+                    onChange={(e) => {
+                      if (e.target.files[0]) addFormat(e.target.files[0])
+                      e.target.value = ''
+                    }}
+                  />
+                  <button
+                    className="new-format-btn"
+                    disabled={!newFormatName.trim() || addingFormat}
+                    onClick={() => newFormatRef.current?.click()}
+                  >
+                    {addingFormat ? '···' : '+ Add'}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -653,6 +711,28 @@ export default function App() {
           padding: 2px 6px; border-radius: 2px; font-weight: 600;
           text-transform: uppercase; letter-spacing: 0.8px;
         }
+
+        /* ===== NEW FORMAT ===== */
+        .new-format-row {
+          display: flex; gap: 6px; margin-top: 8px; padding-top: 8px;
+          border-top: 1px solid var(--border);
+        }
+        .new-format-input {
+          flex: 1; padding: 6px 10px; border-radius: 4px;
+          border: 1px solid var(--border); background: var(--bg);
+          color: var(--text); font-family: var(--mono); font-size: 10px;
+          outline: none; transition: border-color 0.15s;
+        }
+        .new-format-input:focus { border-color: rgba(255,107,43,0.3); }
+        .new-format-input::placeholder { color: var(--text-muted); }
+        .new-format-btn {
+          padding: 6px 14px; border-radius: 4px; border: 1px solid var(--accent);
+          background: var(--accent-dim); color: var(--accent); font-family: var(--mono);
+          font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+          white-space: nowrap;
+        }
+        .new-format-btn:hover:not(:disabled) { background: rgba(255,107,43,0.22); }
+        .new-format-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
         /* ===== PROMPT ===== */
         .prompt-section { margin-top: 12px; animation: fadeIn 0.15s ease; }
