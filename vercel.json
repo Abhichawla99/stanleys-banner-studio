@@ -3,13 +3,13 @@
   "buildCommand": "cd client && npm install && npm run build",
   "outputDirectory": "client/dist",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/server/index.mjs" },
-    { "source": "/outputs/(.*)", "destination": "/server/index.mjs" },
-    { "source": "/templates/(.*)", "destination": "/server/index.mjs" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/api/:path*",       "destination": "/api/index.mjs" },
+    { "source": "/outputs/:path*",   "destination": "/api/index.mjs" },
+    { "source": "/templates/:path*", "destination": "/api/index.mjs" },
+    { "source": "/(.*)",             "destination": "/index.html" }
   ],
   "functions": {
-    "server/index.mjs": {
+    "api/index.mjs": {
       "memory": 1024,
       "maxDuration": 300
     }
