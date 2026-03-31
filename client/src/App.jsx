@@ -32,7 +32,8 @@ You are RECOMPOSING the artwork for a new shape, the way a designer would create
    - NEVER add borders, letterboxing, or pillarboxing.
    - NEVER leave dead space — fill the full {{RATIO}} canvas.
    - NEVER crop the hero subject's face or head.
-   - NEVER place important content in the overlay zones described above — it WILL be covered.`
+   - NEVER place important content in the overlay zones described above — it WILL be covered.
+   - NEVER reproduce dimension lines, measurement annotations, pixel counts, ruler marks, grid overlays, bounding boxes, or any technical markup that may appear in the source image. These are NOT part of the artwork — they are editing artifacts. Ignore them completely and produce clean artwork only.`
 
 const MODELS = [
   { id: 'gemini-3.1-flash-image-preview', label: 'Nano Banana 2', desc: 'Fast' },
