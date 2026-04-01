@@ -1,0 +1,29 @@
+{
+  "artZone": {
+    "x": 0,
+    "y": 0,
+    "width": 1154,
+    "height": 576
+  },
+  "frameAnalysis": {
+    "top": {
+      "height_px": 50,
+      "contains": "solid blue frame element"
+    },
+    "bottom": {
+      "height_px": 51,
+      "contains": "solid blue frame element"
+    },
+    "left": {
+      "width_px": 49,
+      "contains": "solid blue frame element"
+    },
+    "right": {
+      "width_px": 285,
+      "contains": "solid blue frame element, featuring the 'prime' logo (white text and smile arrow) centered within it"
+    },
+    "corners": "The 'prime' branding is located within the right opaque border, roughly centered vertically and horizontally within that space.",
+    "instructions": "Place all critical content, including the primary subject and title text, within the central white art zone, as the blue frame will obscure anything outside it. The main focus and composition should be optimized for a central position, while also being mindful that the right-hand opaque border is quite wide, suggesting the right third of the art zone is particularly susceptible to being cropped or overlooked."
+  },
+  "frameInstructions": "Place all critical content, including the primary subject and title text, within the central white art zone, as the blue frame will obscure anything outside it. The main focus and composition should be optimized for a central position, while also being mindful that the right-hand opaque border is quite wide, suggesting the right third of the art zone is particularly susceptible to being cropped or overlooked."
+}

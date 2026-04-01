@@ -4,5 +4,26 @@
     "y": 450,
     "width": 1069,
     "height": 1284
-  }
+  },
+  "frameAnalysis": {
+    "top": {
+      "height_px": 450,
+      "contains": "Solid bright blue header band (25% of total height) featuring the white Prime logo, an informational overlay text box below the logo, and a yellow text strip along the right edge."
+    },
+    "bottom": {
+      "height_px": 66,
+      "contains": "Solid bright blue border band (3.6% of total height)."
+    },
+    "left": {
+      "width_px": 72,
+      "contains": "Solid magenta border band (6% of total width) with text reading '5% OF WIDTH OF AD GIVES BORDER SIZE' rotated 90 degrees."
+    },
+    "right": {
+      "width_px": 59,
+      "contains": "Solid bright blue border band (5% of total width)."
+    },
+    "corners": "The entire bright blue 'header' area (top 25% of the canvas) contains the key Prime branding and informational text overlays. A specific text overlay is also within a vertical yellow strip on the far-right edge of the header area.",
+    "instructions": "Ensure the artwork is designed so that the key hero subject and main title are positioned centrally within the 1069×1284 art zone. The 450px top header contains crucial Prime branding and text that must remain unobstructed. No important subject details or text should be placed near the 72px left magenta border, which also contains text."
+  },
+  "frameInstructions": "Ensure the artwork is designed so that the key hero subject and main title are positioned centrally within the 1069×1284 art zone. The 450px top header contains crucial Prime branding and text that must remain unobstructed. No important subject details or text should be placed near the 72px left magenta border, which also contains text."
 }

@@ -4,5 +4,26 @@
     "y": 62,
     "width": 1284,
     "height": 1069
-  }
+  },
+  "frameAnalysis": {
+    "top": {
+      "height_px": 62,
+      "contains": "A solid light-blue border spanning the full width of the banner."
+    },
+    "bottom": {
+      "height_px": 69,
+      "contains": "A solid light-blue border spanning the full width of the banner."
+    },
+    "left": {
+      "width_px": 66,
+      "contains": "A light-blue border containing a thin magenta vertical strip centered within it. This strip runs the height of the banner and has text '3.5% OF WIDTH OF AD GIVES BOARDER SIZE' reading from bottom to top in a white, bold, sans-serif font."
+    },
+    "right": {
+      "width_px": 450,
+      "contains": "A large, multi-element branding panel. It features a solid yellow rectangular bar at the top containing centered black text 'CONTAINER IS 25% OF WIDTH OF AD'. Below this is the Amazon Prime logo (white text and blue arrow) on a light-blue background, and below the logo is a small magenta text block with white text 'LOGO IS 60% WIDTH OF CONTAINER'."
+    },
+    "corners": "The Prime Video logo and associated text blocks occupy the entire right side from top to bottom, with the primary logo and text block in the mid-to-lower right area. The thin magenta border with text runs vertically down the left side.",
+    "instructions": "Place the main hero subject slightly left of center, focusing on a safe area around [350, 450] within the 1284×1069 art zone, to avoid the heavy right-side branding. Keep the top 100 pixels and the entire left edge of the artwork clear of any critical details or title text to ensure they aren't obscured or compete with the template's borders."
+  },
+  "frameInstructions": "Place the main hero subject slightly left of center, focusing on a safe area around [350, 450] within the 1284×1069 art zone, to avoid the heavy right-side branding. Keep the top 100 pixels and the entire left edge of the artwork clear of any critical details or title text to ensure they aren't obscured or compete with the template's borders."
 }

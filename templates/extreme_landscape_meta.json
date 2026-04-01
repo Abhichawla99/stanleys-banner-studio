@@ -4,5 +4,26 @@
     "y": 79,
     "width": 2362,
     "height": 669
-  }
+  },
+  "frameAnalysis": {
+    "top": {
+      "height_px": 79,
+      "contains": "solid blue bar with a thin, dark top edge."
+    },
+    "bottom": {
+      "height_px": 52,
+      "contains": "solid blue bar with a thin, dark bottom edge."
+    },
+    "left": {
+      "width_px": 36,
+      "contains": "thin solid blue vertical bar, with a dark blue vertical line on the left side and a magenta vertical line on the right side."
+    },
+    "right": {
+      "width_px": 802,
+      "contains": "solid blue container with a yellow text bar and branding. The text bar at the bottom contains 'CONTAINER IS 25% OF WIDTH OF THE POSTER'. Above it is the vertical 'prime' logo and swoosh. The text at the top, inside a magenta box, reads 'LOGO IS 60% OF DEPTH OF THE CONTAINER'."
+    },
+    "corners": "Large complex branding container on the entire right side.",
+    "instructions": "Place the main hero subject for the 2362x669 artwork centrally or slightly to the left to ensure it is not obscured by the extensive right-side frame. Any main title text should be located in the top-left or top-center of the art zone, avoiding the blue frame completely. The composition must strictly avoid placing any crucial content or text in the right-most 802 pixels of the overall canvas, which is entirely occupied by the frame."
+  },
+  "frameInstructions": "Place the main hero subject for the 2362x669 artwork centrally or slightly to the left to ensure it is not obscured by the extensive right-side frame. Any main title text should be located in the top-left or top-center of the art zone, avoiding the blue frame completely. The composition must strictly avoid placing any crucial content or text in the right-most 802 pixels of the overall canvas, which is entirely occupied by the frame."
 }

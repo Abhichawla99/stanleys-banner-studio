@@ -4,5 +4,26 @@
     "y": 409,
     "width": 1070,
     "height": 1129
-  }
+  },
+  "frameAnalysis": {
+    "top": {
+      "height_px": 409,
+      "contains": "Solid bright blue header band with the dark magenta 'LOGO 50% OF THE DEPTH' instruction box and the central white 'prime' and smile logo. The central area should remain clear of essential artwork, though background elements can extend."
+    },
+    "bottom": {
+      "height_px": 62,
+      "contains": "Solid bright blue footer band. This area can be used for secondary artwork or ignored."
+    },
+    "left": {
+      "width_px": 69,
+      "contains": "Solid bright blue border with the vertical dark magenta text box reading '5% OF WIDTH OF AD GIVES BORDER SIZE' rotated 90 degrees CCW."
+    },
+    "right": {
+      "width_px": 61,
+      "contains": "Solid bright blue border with the vertical yellow 'CONTAINER 25% DEPTH OF AD' text box. The top of this text box extends significantly into the top blue area."
+    },
+    "corners": "The vertical yellow container box on the right edge extends through the top-right corner area. The vertical magenta box on the left edge is below the top edge but still near the corner. The bottom corners are clear bright blue.",
+    "instructions": "Place the main hero subject of the artwork centered within the 1070x1129 art zone, below the level of the 'prime' logo to avoid overlapping the header information. The main title of the artwork should be kept well below the top of the art zone, starting no higher than y=150 (relative to the art zone) to ensure it's not obscured by the header, especially given the yellow container text on the right."
+  },
+  "frameInstructions": "Place the main hero subject of the artwork centered within the 1070x1129 art zone, below the level of the 'prime' logo to avoid overlapping the header information. The main title of the artwork should be kept well below the top of the art zone, starting no higher than y=150 (relative to the art zone) to ensure it's not obscured by the header, especially given the yellow container text on the right."
 }

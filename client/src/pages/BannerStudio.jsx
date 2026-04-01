@@ -25,16 +25,26 @@ You are RECOMPOSING the artwork for a new shape, the way a designer would create
 3. SACRED RULES — things you must NEVER change:
    - The SPELLING of every word. If it says "Lord of the Rings" you output "Lord of the Rings" — letter for letter, no rewording.
    - The VISUAL IDENTITY — same art style (photorealistic stays photorealistic, illustrated stays illustrated), same colour palette, same lighting mood, same contrast.
-   - The CONTENT — never add characters, objects, logos, or text that are not in the original. Never remove elements that are in the original.
+   - The CONTENT — never add characters, objects, or text that are not part of the core artwork. Never remove characters or key artwork elements.
 
-4. ABSOLUTE RULES:
-   - NEVER change, rephrase, abbreviate, or misspell ANY text from the original artwork.
+4. PLATFORM BRANDING — IGNORE AND STRIP:
+   The source image may contain platform/streaming-service branding that is NOT part of the artwork. You MUST identify and EXCLUDE all of the following:
+   - Streaming service logos (e.g. Prime Video, Netflix, Disney+, HBO, Hulu, Apple TV+, Peacock, Paramount+, etc.)
+   - Colored borders, frames, or background panels added by the platform (e.g. solid blue, red, or black borders around the key art)
+   - Network bugs, channel logos, or broadcaster watermarks
+   - "Watch now", "Stream on", "Only on", "Exclusive" platform badges
+   - QR codes, URLs, or app store badges
+   These are DISTRIBUTION PACKAGING, not artwork. Strip them out completely. Your output must contain ONLY the show/movie key art — the characters, title treatment, tagline, and atmospheric background. Do NOT reproduce any platform branding, colored borders, or service logos.
+
+5. ABSOLUTE RULES:
+   - NEVER change, rephrase, abbreviate, or misspell ANY text from the original artwork (titles, taglines, dates — NOT platform branding text).
    - NEVER stretch, squash, or distort any element.
    - NEVER add borders, letterboxing, or pillarboxing.
    - NEVER leave dead space — fill the full {{RATIO}} canvas.
    - NEVER crop the hero subject's face or head.
    - NEVER place important content in the overlay zones described above — it WILL be covered.
-   - NEVER reproduce dimension lines, measurement annotations, pixel counts, ruler marks, grid overlays, bounding boxes, or any technical markup that may appear in the source image. These are NOT part of the artwork — they are editing artifacts. Ignore them completely and produce clean artwork only.`
+   - NEVER reproduce dimension lines, measurement annotations, pixel counts, ruler marks, grid overlays, bounding boxes, or any technical markup that may appear in the source image. These are NOT part of the artwork — they are editing artifacts. Ignore them completely and produce clean artwork only.
+   - NEVER reproduce platform branding, streaming service logos, or colored platform borders from the source image. These will be added separately by the banner template system.`
 
 const MODELS = [
   { id: 'gemini-3.1-flash-image-preview', label: 'Nano Banana 2', desc: 'Fast' },
@@ -59,6 +69,8 @@ export default function BannerStudio() {
   const [selectedResult, setSelectedResult] = useState(null)
   const [addingFormat, setAddingFormat] = useState(false)
   const [newFormatName, setNewFormatName] = useState('')
+  const [bannerNotes, setBannerNotes] = useState({})
+  const [notesOpen, setNotesOpen] = useState({})
   const fileRef = useRef()
   const newFormatRef = useRef()
   const templateRefs = useRef({})
@@ -143,6 +155,7 @@ export default function BannerStudio() {
     form.append('bannerIds', JSON.stringify(selected))
     form.append('model', model)
     form.append('customPrompt', prompt)
+    form.append('bannerNotes', JSON.stringify(bannerNotes))
 
     try {
       const response = await fetch(`${API}/api/generate`, { method: 'POST', body: form })
@@ -260,37 +273,58 @@ export default function BannerStudio() {
                 </button>
               </div>
               <div className="format-list">
-                {banners.map(b => (
-                  <div key={b.id} className={`format-row ${selected.includes(b.id) ? 'on' : ''}`}>
-                    <div className="format-main" onClick={() => toggle(b.id)}>
-                      <div className={`format-toggle ${selected.includes(b.id) ? 'on' : ''}`}>
-                        <div className="format-toggle-dot" />
+                {banners.map(b => {
+                  const hasNote = !!(bannerNotes[b.id]?.trim())
+                  const isOpen = notesOpen[b.id]
+                  return (
+                    <div key={b.id} className={`format-row ${selected.includes(b.id) ? 'on' : ''}`}>
+                      <div className="format-main" onClick={() => toggle(b.id)}>
+                        <div className={`format-toggle ${selected.includes(b.id) ? 'on' : ''}`}>
+                          <div className="format-toggle-dot" />
+                        </div>
+                        <div className="format-info">
+                          <span className="format-name">{b.label}</span>
+                          <span className="format-spec">{b.width}×{b.height}</span>
+                          <span className="format-ratio">{b.ratio}</span>
+                          {b.isUserCreated && <span className="tag-custom">Custom</span>}
+                        </div>
                       </div>
-                      <div className="format-info">
-                        <span className="format-name">{b.label}</span>
-                        <span className="format-spec">{b.width}×{b.height}</span>
-                        <span className="format-ratio">{b.ratio}</span>
-                        {b.isUserCreated && <span className="tag-custom">Custom</span>}
+                      <div className="format-actions">
+                        <input type="file" accept="image/*,.svg" hidden ref={el => templateRefs.current[b.id] = el}
+                          onChange={(e) => { if (e.target.files[0]) uploadTemplate(b.id, e.target.files[0]); e.target.value = '' }} />
+                        <button className="ghost-btn" onClick={() => templateRefs.current[b.id]?.click()}>
+                          {uploadingTemplate === b.id ? '···' : b.isCustom ? 'Replace' : 'Template'}
+                        </button>
+                        <button
+                          className={`ghost-btn note-toggle ${hasNote ? 'has-note' : ''} ${isOpen ? 'active' : ''}`}
+                          title="Banner-specific instructions"
+                          onClick={() => setNotesOpen(o => ({ ...o, [b.id]: !o[b.id] }))}
+                        >✎</button>
+                        {b.isCustom && !b.isUserCreated && (
+                          <>
+                            <span className="tag-custom">Custom</span>
+                            <button className="ghost-btn warn" onClick={() => revertTemplate(b.id)}>×</button>
+                          </>
+                        )}
+                        {b.isUserCreated && (
+                          <button className="ghost-btn warn" onClick={() => deleteFormat(b.id)}>×</button>
+                        )}
                       </div>
-                    </div>
-                    <div className="format-actions">
-                      <input type="file" accept="image/*,.svg" hidden ref={el => templateRefs.current[b.id] = el}
-                        onChange={(e) => { if (e.target.files[0]) uploadTemplate(b.id, e.target.files[0]); e.target.value = '' }} />
-                      <button className="ghost-btn" onClick={() => templateRefs.current[b.id]?.click()}>
-                        {uploadingTemplate === b.id ? '···' : b.isCustom ? 'Replace' : 'Template'}
-                      </button>
-                      {b.isCustom && !b.isUserCreated && (
-                        <>
-                          <span className="tag-custom">Custom</span>
-                          <button className="ghost-btn warn" onClick={() => revertTemplate(b.id)}>×</button>
-                        </>
-                      )}
-                      {b.isUserCreated && (
-                        <button className="ghost-btn warn" onClick={() => deleteFormat(b.id)}>×</button>
+                      {isOpen && (
+                        <div className="banner-note-box">
+                          <textarea
+                            className="banner-note-input"
+                            placeholder={`Extra instructions for ${b.label} only…`}
+                            value={bannerNotes[b.id] || ''}
+                            onChange={(e) => setBannerNotes(n => ({ ...n, [b.id]: e.target.value }))}
+                            rows={3}
+                            spellCheck={false}
+                          />
+                        </div>
                       )}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
 
                 {/* Add New Format */}
                 <div className="new-format-row">
@@ -460,14 +494,19 @@ export default function BannerStudio() {
             {!generating && results.length === 0 && (
               <div className="empty">
                 <div className="empty-graphic">
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="0.75">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
                     <rect x="3" y="3" width="18" height="18" rx="2"/>
                     <circle cx="8.5" cy="8.5" r="1.5"/>
                     <polyline points="21 15 16 10 5 21"/>
                   </svg>
                 </div>
                 <div className="empty-text">Output canvas</div>
-                <div className="empty-sub">Upload art → select formats → generate</div>
+                <div className="empty-sub">Your generated banners will appear here across all selected formats</div>
+                <div className="empty-steps">
+                  <div className="empty-step"><span className="empty-step-num">1</span>Upload art</div>
+                  <div className="empty-step"><span className="empty-step-num">2</span>Select formats</div>
+                  <div className="empty-step"><span className="empty-step-num">3</span>Generate</div>
+                </div>
               </div>
             )}
           </div>
@@ -538,17 +577,21 @@ export default function BannerStudio() {
           font-family: var(--mono);
           background: var(--bg);
           color: var(--text);
-          min-height: 100vh;
+          height: 100vh;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
           -webkit-font-smoothing: antialiased;
         }
 
         /* ===== HEADER ===== */
         .header {
           display: flex; align-items: center; justify-content: space-between;
-          padding: 0 24px; height: 52px;
+          padding: 0 20px; height: 52px;
           background: var(--surface);
           border-bottom: 1px solid var(--border);
-          position: sticky; top: 0; z-index: 100;
+          flex-shrink: 0;
+          z-index: 100;
         }
         .header-left, .header-right { display: flex; align-items: center; }
 
@@ -597,19 +640,32 @@ export default function BannerStudio() {
         .model-opt:hover:not(.active) .model-label { color: var(--text); }
 
         /* ===== MAIN LAYOUT ===== */
-        .main { max-width: 1480px; margin: 0 auto; padding: 20px; }
+        .main {
+          flex: 1; overflow: hidden;
+          padding: 16px 20px;
+          display: flex; flex-direction: column;
+        }
         .workspace {
-          display: grid; grid-template-columns: 360px 1fr; gap: 20px;
-          min-height: calc(100vh - 92px);
+          display: grid;
+          grid-template-columns: 340px 1fr;
+          gap: 14px;
+          flex: 1;
+          min-height: 0;
         }
 
         /* ===== SIDEBAR ===== */
-        .sidebar { display: flex; flex-direction: column; gap: 12px; }
+        .sidebar {
+          display: flex; flex-direction: column; gap: 10px;
+          overflow-y: auto; min-height: 0;
+          padding-right: 2px;
+        }
+        .sidebar::-webkit-scrollbar { width: 3px; }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
 
         .panel {
           background: var(--surface); border: 1px solid var(--border);
-          border-radius: var(--radius); padding: 16px;
-          transition: border-color 0.15s;
+          border-radius: 8px; padding: 14px;
+          transition: border-color 0.15s; flex-shrink: 0;
         }
         .panel:hover { border-color: var(--border-hover); }
         .panel-label {
@@ -641,8 +697,8 @@ export default function BannerStudio() {
 
         /* ===== DROPZONE ===== */
         .dropzone {
-          border: 1px dashed rgba(255,255,255,0.12); border-radius: var(--radius);
-          padding: 30px 16px; text-align: center; cursor: pointer;
+          border: 1px dashed rgba(255,255,255,0.12); border-radius: 6px;
+          padding: 22px 16px; text-align: center; cursor: pointer;
           transition: all 0.2s;
         }
         .dropzone:hover { border-color: var(--accent); background: var(--accent-dim); }
@@ -671,12 +727,11 @@ export default function BannerStudio() {
 
         /* ===== FORMAT LIST ===== */
         .format-list {
-          display: flex; flex-direction: column; gap: 2px;
-          max-height: 380px; overflow-y: auto;
+          display: flex; flex-direction: column; gap: 1px;
         }
         .format-row {
           display: flex; align-items: center; justify-content: space-between;
-          padding: 8px 8px; border-radius: 4px;
+          flex-wrap: wrap; padding: 8px 8px; border-radius: 4px;
           transition: background 0.12s; border: 1px solid transparent;
         }
         .format-row:hover { background: rgba(255,255,255,0.03); }
@@ -711,6 +766,21 @@ export default function BannerStudio() {
         .ghost-btn:hover { color: var(--text); border-color: var(--border-hover); background: var(--surface-2); }
         .ghost-btn.warn { color: var(--red); border-color: rgba(255,77,106,0.25); }
         .ghost-btn.warn:hover { background: var(--red-dim); }
+        .ghost-btn.note-toggle { font-size: 11px; padding: 2px 7px; }
+        .ghost-btn.note-toggle.has-note { color: var(--accent); border-color: rgba(255,107,43,0.35); }
+        .ghost-btn.note-toggle.active { background: var(--accent-dim); color: var(--accent); border-color: rgba(255,107,43,0.35); }
+
+        .banner-note-box {
+          width: 100%; padding: 6px 10px 8px; border-top: 1px solid var(--border);
+        }
+        .banner-note-input {
+          width: 100%; resize: vertical; padding: 6px 8px; border-radius: 4px;
+          border: 1px solid var(--border); background: var(--bg);
+          color: var(--text-dim); font-family: var(--mono); font-size: 10px; line-height: 1.5;
+          outline: none; transition: border-color 0.15s; box-sizing: border-box;
+        }
+        .banner-note-input:focus { border-color: rgba(255,107,43,0.3); color: var(--text); }
+        .banner-note-input::placeholder { color: var(--text-muted); font-style: italic; }
 
         .tag-custom {
           font-size: 8px; color: var(--green); background: var(--green-dim);
@@ -768,11 +838,13 @@ export default function BannerStudio() {
 
         /* ===== GENERATE BUTTON ===== */
         .gen-btn {
-          width: 100%; padding: 15px; border-radius: var(--radius); border: none;
+          width: 100%; padding: 14px; border-radius: 8px; border: none;
           background: var(--accent); color: #fff;
-          font-family: var(--display); font-size: 14px; font-weight: 700;
+          font-family: var(--display); font-size: 13px; font-weight: 700;
           cursor: pointer; transition: all 0.2s; letter-spacing: -0.2px;
           box-shadow: 0 4px 20px var(--accent-glow);
+          flex-shrink: 0;
+          margin-top: auto;
         }
         .gen-btn:hover:not(.off) {
           background: var(--accent-hover);
@@ -780,9 +852,9 @@ export default function BannerStudio() {
           transform: translateY(-1px);
         }
         .gen-btn:active:not(.off) { transform: translateY(0); box-shadow: 0 2px 10px var(--accent-glow); }
-        .gen-btn.off { opacity: 0.2; cursor: not-allowed; box-shadow: none; }
+        .gen-btn.off { opacity: 0.25; cursor: not-allowed; box-shadow: none; }
         .gen-inner { display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .gen-arrow { font-size: 18px; font-weight: 300; }
+        .gen-arrow { font-size: 16px; font-weight: 300; }
 
         .gen-spinner {
           width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3);
@@ -791,9 +863,12 @@ export default function BannerStudio() {
 
         /* ===== CANVAS / RESULTS AREA ===== */
         .canvas-area {
-          background: var(--surface); border: 1px solid var(--border);
-          border-radius: var(--radius); padding: 20px; min-height: 500px;
+          background: var(--surface-2);
+          border: 1px solid rgba(255,255,255,0.07);
+          border-radius: 8px; padding: 24px;
           display: flex; flex-direction: column;
+          min-height: 0; overflow-y: auto;
+          background-image: radial-gradient(circle at 50% 50%, rgba(255,107,43,0.02) 0%, transparent 70%);
         }
 
         /* Progress */
@@ -889,14 +964,37 @@ export default function BannerStudio() {
         /* Empty state */
         .empty {
           flex: 1; display: flex; flex-direction: column;
-          align-items: center; justify-content: center; text-align: center; gap: 12px;
+          align-items: center; justify-content: center; text-align: center; gap: 14px;
         }
-        .empty-graphic { color: var(--text-dim); opacity: 0.25; }
+        .empty-graphic {
+          width: 72px; height: 72px; border-radius: 16px;
+          background: var(--surface-2); border: 1px solid var(--border);
+          display: flex; align-items: center; justify-content: center;
+          color: var(--text-dim); opacity: 0.5;
+        }
         .empty-text {
-          font-family: var(--display); font-size: 18px; font-weight: 500;
+          font-family: var(--display); font-size: 20px; font-weight: 600;
           color: var(--text-dim); letter-spacing: -0.5px;
         }
-        .empty-sub { font-size: 11px; color: var(--text-muted); }
+        .empty-sub {
+          font-size: 12px; color: var(--text-muted); line-height: 1.6;
+          max-width: 260px;
+        }
+        .empty-steps {
+          display: flex; gap: 8px; margin-top: 4px;
+        }
+        .empty-step {
+          display: flex; align-items: center; gap: 6px;
+          font-size: 10px; color: var(--text-muted);
+          background: var(--surface-2); border: 1px solid var(--border);
+          padding: 5px 10px; border-radius: 20px;
+        }
+        .empty-step-num {
+          width: 16px; height: 16px; border-radius: 50%;
+          background: var(--surface-3); color: var(--text-dim);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 9px; font-weight: 700; flex-shrink: 0;
+        }
 
         /* ===== LIGHTBOX ===== */
         .lightbox {

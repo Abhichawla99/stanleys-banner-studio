@@ -4,5 +4,26 @@
     "y": 365,
     "width": 1405,
     "height": 1016
-  }
+  },
+  "frameAnalysis": {
+    "top": {
+      "height_px": 365,
+      "contains": "A bright blue header containing the Prime logo (centered) and two distinct overlay elements: a pink 'LOGO IS 50% OF WIDTH' indicator and a yellow 'CONTAINER IS 25% OF WIDTH' vertical band."
+    },
+    "bottom": {
+      "height_px": 59,
+      "contains": "A bright blue footer border, continuing from the left and right, with a thin black frame line at the edge."
+    },
+    "left": {
+      "width_px": 86,
+      "contains": "A blue border that includes a black outer edge and a pink vertical band labeled '4% OF WIDTH OF AD GIVES BORDER SIZE'."
+    },
+    "right": {
+      "width_px": 69,
+      "contains": "A blue border that includes a black outer edge, which is part of the overall 1560-pixel width and creates the framing for the transparent cutout."
+    },
+    "corners": "The 'prime' logo is in the top header, centered horizontally, and there is a yellow 'CONTAINER IS 25%' band that occupies the upper-right corner of the blue background. A vertical pink instruction is in the left border area.",
+    "instructions": "Place the main hero subject in the center of the 1405x1016 cutout (art zone). Avoid placing essential text or face-details in the top 365 pixels, as the large blue Prime header, logos, and instructional boxes will cover this space. Important artwork details must remain within the bounds of the art zone (x=86, y=365) to ensure they are visible."
+  },
+  "frameInstructions": "Place the main hero subject in the center of the 1405x1016 cutout (art zone). Avoid placing essential text or face-details in the top 365 pixels, as the large blue Prime header, logos, and instructional boxes will cover this space. Important artwork details must remain within the bounds of the art zone (x=86, y=365) to ensure they are visible."
 }

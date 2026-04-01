@@ -4,5 +4,26 @@
     "y": 62,
     "width": 1737,
     "height": 1071
-  }
+  },
+  "frameAnalysis": {
+    "top": {
+      "height_px": 62,
+      "contains": "solid blue background"
+    },
+    "bottom": {
+      "height_px": 67,
+      "contains": "solid blue background"
+    },
+    "left": {
+      "width_px": 60,
+      "contains": "solid blue background with a pink bar containing vertical text"
+    },
+    "right": {
+      "width_px": 603,
+      "contains": "solid blue background with a red bar containing text, a large Amazon Prime logo with smile arrow, and a yellow bar containing text"
+    },
+    "corners": "All corners of the inner art zone are bordered by solid blue frame elements. There is no branding within the 1737x1071 art zone itself.",
+    "instructions": "Place the main hero subject and critical text within the central area of the 1737x1071 art zone. The 60px left border and 603px right border, which includes the large Amazon Prime logo, will overlay the artwork. Avoid placing essential elements in the top 62px and bottom 67px, which are solid blue frame areas."
+  },
+  "frameInstructions": "Place the main hero subject and critical text within the central area of the 1737x1071 art zone. The 60px left border and 603px right border, which includes the large Amazon Prime logo, will overlay the artwork. Avoid placing essential elements in the top 62px and bottom 67px, which are solid blue frame areas."
 }

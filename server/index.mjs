@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { GoogleGenAI } from "@google/genai";
+import { randomUUID } from "node:crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,7 +31,8 @@ function templatePath(filename) {
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.text());
 app.use("/outputs",   express.static(path.join(WORK_DIR, "outputs")));
 // Serve templates from BOTH dirs (writable first so custom overrides built-in)
 app.use("/templates", express.static(TEMPLATES_WRITE_DIR));
@@ -65,6 +67,66 @@ function closestSupportedRatio(w, h) {
     if (diff < bestDiff) { bestDiff = diff; best = r; }
   }
   return best;
+}
+
+function getDesignerCompositionHint(config, az) {
+  const ratio = az.width / az.height;
+  const isExtremePortrait = ratio < 0.5;   // very tall, narrow
+  const isPortrait        = ratio < 0.85;  // tall
+  const isSquare          = ratio >= 0.85 && ratio <= 1.2;
+  const isLandscape       = ratio > 1.2 && ratio < 2.5;
+  const isWideLandscape   = ratio >= 2.5 && ratio < 5;
+  const isUltraWide       = ratio >= 5;
+
+  // Shape-based layout strategy
+  let shape = "";
+  if (isExtremePortrait) {
+    shape = `FORMAT: Extreme tall/narrow — design like a full-height outdoor poster.
+HERO PLACEMENT: Fill the center of the canvas with the hero character(s), occupying roughly y ${Math.round(az.height * 0.2)}–${Math.round(az.height * 0.85)} px. Characters should face slightly inward, slightly off-centre.
+TITLE PLACEMENT: Upper section, centred horizontally, roughly y ${Math.round(az.height * 0.05)}–${Math.round(az.height * 0.22)} px. If multi-word, stack vertically with generous line spacing.
+LOWER AREA: Ground, crowd, environmental texture from source. No important elements below y ${Math.round(az.height * 0.85)} px.
+BACKGROUND: Dramatic sky filling the top, extending into the upper safe zone around the title.`;
+  } else if (isPortrait) {
+    shape = `FORMAT: Portrait — design like a movie poster.
+HERO PLACEMENT: Center-to-lower portion, roughly y ${Math.round(az.height * 0.25)}–${Math.round(az.height * 0.88)} px, horizontally centred.
+TITLE PLACEMENT: Upper portion, centred, roughly y ${Math.round(az.height * 0.05)}–${Math.round(az.height * 0.25)} px.
+BACKGROUND: Fill top and bottom with environment from source.`;
+  } else if (isSquare) {
+    shape = `FORMAT: Square — design like a square campaign asset.
+HERO PLACEMENT: Centre of canvas, occupying the central 60% of width and height.
+TITLE PLACEMENT: Upper third, centred horizontally.
+BACKGROUND: Fill corners and edges with environment from source.`;
+  } else if (isLandscape) {
+    shape = `FORMAT: Landscape — design like a horizontal theatrical banner.
+HERO PLACEMENT: Slightly left of centre, roughly x ${Math.round(az.width * 0.1)}–${Math.round(az.width * 0.65)} px.
+TITLE PLACEMENT: Upper-left or upper-centre of safe zone, clear of the hero's face.
+BACKGROUND: Atmospheric environment fills the right portion and edges.`;
+  } else if (isWideLandscape) {
+    shape = `FORMAT: Wide landscape — design like a billboard.
+HERO PLACEMENT: Left and centre sections, roughly x ${Math.round(az.width * 0.05)}–${Math.round(az.width * 0.6)} px. Stack or spread multiple characters horizontally.
+TITLE PLACEMENT: Left or lower-centre of safe zone. Large, bold, readable at distance.
+BACKGROUND: Right 35% and all edges filled with atmospheric environment from source only.`;
+  } else {
+    shape = `FORMAT: Ultra-wide — design like a panoramic OOH billboard.
+HERO PLACEMENT: LEFT half of safe zone, roughly x ${Math.round(az.width * 0.02)}–${Math.round(az.width * 0.5)} px. Keep faces and bodies fully visible.
+TITLE PLACEMENT: Lower-left or centre-left of safe zone.
+BACKGROUND: Right half and all edges filled with atmospheric environment, no characters.`;
+  }
+
+  // Logo-position adjustment
+  const logo = config.logo || "";
+  let logoNote = "";
+  if (logo === "right") {
+    logoNote = `LOGO SIDE: The brand logo panel is on the RIGHT outside your canvas. Treat the right 30% of your canvas as atmosphere-only — no title, no hero faces there.`;
+  } else if (logo === "top-left") {
+    logoNote = `LOGO CORNER: The brand logo is in the top-left corner outside your canvas. Shift title and hero slightly right of centre — avoid the top-left quadrant for any key content.`;
+  } else if (logo === "top-right") {
+    logoNote = `LOGO CORNER: The brand logo is in the top-right corner outside your canvas. Keep title and hero centred or left-of-centre — avoid the top-right quadrant for key content.`;
+  } else if (logo === "top-center") {
+    logoNote = `LOGO POSITION: The brand logo is at the top centre outside your canvas. The very top edge is adjacent to the logo — place the title slightly lower than you normally would, in the upper-middle zone rather than the very top.`;
+  }
+
+  return [shape, logoNote].filter(Boolean).join("\n");
 }
 
 const BANNER_CONFIGS = [
@@ -215,6 +277,8 @@ function computeArtZone(config) {
       _artZone: meta.artZone,
       _customTemplate: true,
       _userCreated: true,
+      _frameAnalysis: meta.frameAnalysis || null,
+      _frameInstructions: meta.frameInstructions || null,
     });
     console.log(`  ✓ ${meta.label || id} (${meta.width}×${meta.height}) [user-created]`);
   }
@@ -228,6 +292,8 @@ function computeArtZone(config) {
       if (fs.existsSync(metaPath)) {
         const meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
         c._artZone = meta.artZone;
+        c._frameAnalysis = meta.frameAnalysis || null;
+        c._frameInstructions = meta.frameInstructions || null;
       } else {
         c._artZone = computeArtZone(c);
       }
@@ -239,6 +305,41 @@ function computeArtZone(config) {
     }
   }
   console.log("Templates ready.\n");
+
+  // Analyze frames for any templates missing frameInstructions (custom OR built-in)
+  const needsAnalysis = BANNER_CONFIGS.filter(c => !c._frameInstructions && c._artZone);
+  if (needsAnalysis.length > 0 && process.env.GEMINI_API_KEY) {
+    console.log(`Analyzing ${needsAnalysis.length} template frame(s)...`);
+    for (const c of needsAnalysis) {
+      const customFrame = templatePath(`${c.id}_custom.png`);
+      const defaultFrame = templatePath(`${c.id}.png`);
+      const framePath = fs.existsSync(customFrame) ? customFrame : defaultFrame;
+      if (!fs.existsSync(framePath)) continue;
+      try {
+        const frameAnalysis = await analyzeFrameWithAI(framePath, c._artZone, c.width, c.height);
+        if (frameAnalysis?.instructions) {
+          c._frameAnalysis = frameAnalysis;
+          c._frameInstructions = frameAnalysis.instructions;
+          // Update or create meta.json
+          const metaPath = path.join(TEMPLATES_WRITE_DIR, `${c.id}_meta.json`);
+          let meta = {};
+          if (fs.existsSync(metaPath)) {
+            meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
+          }
+          meta.artZone = meta.artZone || c._artZone;
+          meta.frameAnalysis = frameAnalysis;
+          meta.frameInstructions = frameAnalysis.instructions;
+          fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2));
+          console.log(`  ✓ ${c.label}: ${frameAnalysis.instructions.slice(0, 100)}...`);
+        } else {
+          console.log(`  ⚠ ${c.label}: no instructions returned`);
+        }
+      } catch (err) {
+        console.log(`  ⚠ ${c.label}: ${err.message?.slice(0, 80)}`);
+      }
+    }
+    console.log("Frame analysis complete.\n");
+  }
 })();
 
 // ============================================================
@@ -258,6 +359,56 @@ app.get("/api/banners", (req, res) => {
     isUserCreated: !!c._userCreated,
   })));
 });
+
+// Analyze the frame around the art zone to generate template-specific composition instructions.
+// This tells Gemini exactly where logos, text bars, and branding sit so artwork avoids those areas.
+async function analyzeFrameWithAI(imagePath, artZone, fullWidth, fullHeight) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+
+  const ai = new GoogleGenAI({ apiKey });
+  const imgBuf = fs.readFileSync(imagePath);
+  const b64 = imgBuf.toString("base64");
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-image-preview",
+      contents: [{ role: "user", parts: [
+        { inlineData: { mimeType: "image/png", data: b64 } },
+        { text: `This is a banner TEMPLATE/FRAME image that is ${fullWidth}×${fullHeight} pixels. It has a transparent cutout (art zone) at x=${artZone.x}, y=${artZone.y}, size ${artZone.width}×${artZone.height} where artwork will be placed.
+
+The OPAQUE areas around the cutout contain the banner frame — logos, text, branding, borders, etc. These frame elements will be composited ON TOP of the generated artwork.
+
+Analyze the frame and tell me EXACTLY what is in each area around the art zone. I need this to instruct an image generation AI where to place content so nothing important gets hidden.
+
+Return ONLY a JSON object with this structure:
+{
+  "top": {"height_px": <number>, "contains": "<what's there — e.g. 'logo', 'brand name', 'empty border', 'thin frame edge'>"},
+  "bottom": {"height_px": <number>, "contains": "<what's there>"},
+  "left": {"width_px": <number>, "contains": "<what's there>"},
+  "right": {"width_px": <number>, "contains": "<what's there>"},
+  "corners": "<describe any logos or branding in specific corners, e.g. 'Prime Video logo in top-left', 'QR code bottom-right'>",
+  "instructions": "<Write 2-3 sentences of specific composition instructions for an AI generating artwork for this cutout. Be specific about which areas to avoid and where to place the hero subject and title. Reference pixel coordinates relative to the ${artZone.width}×${artZone.height} art zone.>"
+}
+
+Be precise about pixel measurements. Return ONLY the JSON, no other text.` }
+      ]}],
+      config: { responseModalities: ["TEXT"] },
+    });
+
+    const text = response.candidates?.[0]?.content?.parts?.find(p => p.text)?.text;
+    if (!text) return null;
+
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    return parsed;
+  } catch (err) {
+    console.error("[Frame Analysis] Error:", err.message?.slice(0, 200));
+    return null;
+  }
+}
 
 async function detectArtZoneWithAI(imagePath, config) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -372,6 +523,17 @@ app.post("/api/formats/new", upload.single("frame"), async (req, res) => {
     const artRatio = closestSupportedRatio(artZone.width, artZone.height);
     const overallRatio = closestSupportedRatio(width, height);
 
+    // Save the frame PNG first so we can analyze it
+    const framePath = path.join(TEMPLATES_WRITE_DIR, `${id}_custom.png`);
+    fs.writeFileSync(framePath, pngBuffer);
+
+    // Analyze the frame to generate template-specific composition instructions
+    const frameAnalysis = await analyzeFrameWithAI(framePath, artZone, width, height);
+    const frameInstructions = frameAnalysis?.instructions || null;
+    if (frameAnalysis) {
+      console.log(`[NEW FORMAT] Frame analysis for ${label}:`, frameAnalysis.instructions?.slice(0, 120));
+    }
+
     // Build the config
     const config = {
       id,
@@ -391,11 +553,11 @@ app.post("/api/formats/new", upload.single("frame"), async (req, res) => {
       _artZone: artZone,
       _customTemplate: true,
       _userCreated: true,
+      _frameAnalysis: frameAnalysis,
+      _frameInstructions: frameInstructions,
     };
 
-    // Save the frame PNG and metadata
-    const framePath = path.join(TEMPLATES_WRITE_DIR, `${id}_custom.png`);
-    fs.writeFileSync(framePath, pngBuffer);
+    // Save metadata
     const metaPath = path.join(TEMPLATES_WRITE_DIR, `${id}_meta.json`);
     fs.writeFileSync(metaPath, JSON.stringify({
       artZone,
@@ -403,6 +565,8 @@ app.post("/api/formats/new", upload.single("frame"), async (req, res) => {
       width,
       height,
       userCreated: true,
+      frameAnalysis,
+      frameInstructions,
     }, null, 2));
 
     BANNER_CONFIGS.push(config);
@@ -487,11 +651,22 @@ app.post("/api/templates/:id/upload", upload.single("template"), async (req, res
 
     config._artZone = artZone;
     config._customTemplate = true;
+
+    // Analyze the frame to generate template-specific composition instructions
+    const customPath = path.join(TEMPLATES_WRITE_DIR, `${config.id}_custom.png`);
+    const frameAnalysis = await analyzeFrameWithAI(customPath, artZone, config.width, config.height);
+    const frameInstructions = frameAnalysis?.instructions || null;
+    config._frameAnalysis = frameAnalysis;
+    config._frameInstructions = frameInstructions;
+    if (frameAnalysis) {
+      console.log(`[${config.id}] Frame analysis:`, frameInstructions?.slice(0, 120));
+    }
+
     const metaPath = path.join(TEMPLATES_WRITE_DIR, `${config.id}_meta.json`);
-    fs.writeFileSync(metaPath, JSON.stringify({ artZone }, null, 2));
+    fs.writeFileSync(metaPath, JSON.stringify({ artZone, frameAnalysis, frameInstructions }, null, 2));
     fs.unlinkSync(req.file.path);
 
-    res.json({ success: true, label: config.label, artZone, templateUrl: `/templates/${config.id}_custom.png` });
+    res.json({ success: true, label: config.label, artZone, frameInstructions, templateUrl: `/templates/${config.id}_custom.png` });
   } catch (err) {
     console.error(`[${config.id}] Template upload error:`, err.message);
     res.status(500).json({ error: err.message });
@@ -516,9 +691,10 @@ app.post("/api/generate", upload.single("art"), async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY not set" });
 
-  const { bannerIds, model, customPrompt } = req.body;
+  const { bannerIds, model, customPrompt, bannerNotes } = req.body;
   const selectedIds = JSON.parse(bannerIds || "[]");
   const selectedModel = model || "gemini-3.1-flash-image-preview";
+  const perBannerNotes = JSON.parse(bannerNotes || "{}");
   if (!req.file) return res.status(400).json({ error: "No art file uploaded" });
   if (!selectedIds.length) return res.status(400).json({ error: "No banners selected" });
 
@@ -580,16 +756,26 @@ You are RECOMPOSING the artwork for a new shape, the way a designer would create
 3. SACRED RULES — things you must NEVER change:
    - The SPELLING of every word. If it says "Lord of the Rings" you output "Lord of the Rings" — letter for letter, no rewording.
    - The VISUAL IDENTITY — same art style (photorealistic stays photorealistic, illustrated stays illustrated), same colour palette, same lighting mood, same contrast.
-   - The CONTENT — never add characters, objects, logos, or text that are not in the original. Never remove elements that are in the original.
+   - The CONTENT — never add characters, objects, or text that are not part of the core artwork. Never remove characters or key artwork elements.
 
-4. ABSOLUTE RULES:
-   - NEVER change, rephrase, abbreviate, or misspell ANY text from the original artwork.
+4. PLATFORM BRANDING — IGNORE AND STRIP:
+   The source image may contain platform/streaming-service branding that is NOT part of the artwork. You MUST identify and EXCLUDE all of the following:
+   - Streaming service logos (e.g. Prime Video, Netflix, Disney+, HBO, Hulu, Apple TV+, Peacock, Paramount+, etc.)
+   - Colored borders, frames, or background panels added by the platform (e.g. solid blue, red, or black borders around the key art)
+   - Network bugs, channel logos, or broadcaster watermarks
+   - "Watch now", "Stream on", "Only on", "Exclusive" platform badges
+   - QR codes, URLs, or app store badges
+   These are DISTRIBUTION PACKAGING, not artwork. Strip them out completely. Your output must contain ONLY the show/movie key art — the characters, title treatment, tagline, and atmospheric background. Do NOT reproduce any platform branding, colored borders, or service logos.
+
+5. ABSOLUTE RULES:
+   - NEVER change, rephrase, abbreviate, or misspell ANY text from the original artwork (titles, taglines, dates — NOT platform branding text).
    - NEVER stretch, squash, or distort any element.
    - NEVER add borders, letterboxing, or pillarboxing.
    - NEVER leave dead space — fill the full {{RATIO}} canvas.
    - NEVER crop the hero subject's face or head.
    - NEVER place important content in the overlay zones described above — it WILL be covered.
-   - NEVER reproduce dimension lines, measurement annotations, pixel counts, ruler marks, grid overlays, bounding boxes, or any technical markup that may appear in the source image. These are NOT part of the artwork — they are editing artifacts. Ignore them completely and produce clean artwork only.`;
+   - NEVER reproduce dimension lines, measurement annotations, pixel counts, ruler marks, grid overlays, bounding boxes, or any technical markup that may appear in the source image. These are NOT part of the artwork — they are editing artifacts. Ignore them completely and produce clean artwork only.
+   - NEVER reproduce platform branding, streaming service logos, or colored platform borders from the source image. These will be added separately by the banner template system.`;
 
   for (const id of selectedIds) {
     const config = BANNER_CONFIGS.find(c => c.id === id);
@@ -601,11 +787,46 @@ You are RECOMPOSING the artwork for a new shape, the way a designer would create
       const az = config._artZone;
       const artRatio = closestSupportedRatio(az.width, az.height);
 
-      const prompt = (customPrompt || defaultPrompt)
+      const margin = Math.max(30, Math.round(Math.min(az.width, az.height) * 0.06));
+      const safeL = margin, safeT = margin;
+      const safeR = az.width - margin, safeB = az.height - margin;
+      const compositionHint = getDesignerCompositionHint(config, az);
+
+      // Template-specific frame analysis instructions (generated when template was uploaded)
+      const frameInstructions = config._frameInstructions;
+      const frameBlock = frameInstructions
+        ? `\n\nTEMPLATE-SPECIFIC INSTRUCTIONS (from frame analysis):\n${frameInstructions}\nThese instructions are based on the actual banner frame that will be overlaid. Follow them precisely.`
+        : '';
+
+      const computedLayout = `Your generated canvas IS the visible art window: ${az.width}×${az.height} px.
+The banner frame border runs flush along ALL FOUR EDGES of your canvas — the outermost ${margin}px on every side will be partially covered by the frame edge.
+HARD SAFE ZONE — ALL important content (title, faces, characters, logos) must stay inside: x ${safeL}–${safeR} px, y ${safeT}–${safeB} px.
+Outside the safe zone: background only — sky, atmosphere, texture. No text, no faces, no characters.
+
+DESIGNER COMPOSITION GUIDE for this format:
+${compositionHint}${frameBlock}`;
+
+      const bannerNote = perBannerNotes[id]?.trim();
+
+      let basePrompt = (customPrompt || defaultPrompt)
         .replaceAll("{{RATIO}}", artRatio)
-        .replaceAll("{{LAYOUT}}", config.layoutHint || "No specific layout constraints.")
+        .replaceAll("{{LAYOUT}}", computedLayout)
         .replaceAll("{{ART_WIDTH}}", String(az.width))
         .replaceAll("{{ART_HEIGHT}}", String(az.height));
+
+      let prompt;
+      if (bannerNote) {
+        // Inject at the top so it has primacy — Gemini weights early instructions most heavily.
+        // Also repeat as final line for recency effect.
+        const noteBlock = `=== PRIORITY INSTRUCTIONS FOR THIS FORMAT ===\n${bannerNote}\n=== END PRIORITY INSTRUCTIONS ===\n\n`;
+        const firstNewline = basePrompt.indexOf('\n');
+        prompt = firstNewline >= 0
+          ? basePrompt.slice(0, firstNewline + 1) + '\n' + noteBlock + basePrompt.slice(firstNewline + 1)
+          : noteBlock + basePrompt;
+        prompt += `\n\nREMINDER — apply the priority instructions above: ${bannerNote}`;
+      } else {
+        prompt = basePrompt;
+      }
 
       let response;
       for (let attempt = 0; attempt < 3; attempt++) {
@@ -746,6 +967,254 @@ app.get("/api/runs/:id", (req, res) => {
       }))
     : [];
   res.json({ runId: req.params.id, banners, originalUrl: `/outputs/${req.params.id}/original.png` });
+});
+
+// ============================================================
+// AIFLOW — SSE + Webhooks
+// ============================================================
+const sseClients = new Set();
+
+app.get('/sse', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.flushHeaders();
+  sseClients.add(res);
+  req.on('close', () => sseClients.delete(res));
+});
+
+function broadcastSSE(data) {
+  const msg = `data: ${JSON.stringify(data)}\n\n`;
+  sseClients.forEach(r => r.write(msg));
+}
+
+app.all('/webhook/:wpath', (req, res) => {
+  const wpath = req.params.wpath;
+  broadcastSSE({ path: wpath, payload: req.body });
+  res.json({ ok: true, path: wpath, received: req.body });
+});
+
+// ============================================================
+// AIFLOW — API Proxies (Gemini, OpenAI, Kling, fal.ai)
+// ============================================================
+
+// Kling JWT helper
+async function signKlingJWT(accessKey, secretKey) {
+  const encoder = new TextEncoder();
+  const now = Math.floor(Date.now() / 1000);
+  const headerB64 = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const payloadB64 = Buffer.from(JSON.stringify({ iss: accessKey, exp: now + 1800, nbf: now - 5 })).toString('base64url');
+  const signingInput = `${headerB64}.${payloadB64}`;
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw', encoder.encode(secretKey), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(signingInput));
+  return `${headerB64}.${payloadB64}.${Buffer.from(sig).toString('base64url')}`;
+}
+
+// Gemini proxy (workflow nodes use this)
+app.post('/api/gemini', async (req, res) => {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY || req.headers['x-gemini-key'];
+    if (!apiKey) return res.status(400).json({ error: 'No Gemini API key.' });
+    const { model, action = 'generateContent', ...body } = req.body;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:${action}?key=${apiKey}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json().catch(() => ({}));
+    res.status(response.status).json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Gemini operation polling (Veo)
+app.get('/api/gemini/operation', async (req, res) => {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY || req.headers['x-gemini-key'];
+    if (!apiKey) return res.status(400).json({ error: 'No Gemini API key.' });
+    const { name } = req.query;
+    const url = `https://generativelanguage.googleapis.com/v1beta/${name}?key=${apiKey}`;
+    const response = await fetch(url);
+    const data = await response.json().catch(() => ({}));
+    res.status(response.status).json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// OpenAI chat proxy
+app.post('/api/openai/chat', async (req, res) => {
+  try {
+    const apiKey = process.env.OPENAI_API_KEY || req.headers['x-openai-key'];
+    if (!apiKey) return res.status(400).json({ error: 'No OpenAI API key.' });
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(req.body),
+    });
+    const data = await response.json().catch(() => ({}));
+    res.status(response.status).json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// OpenAI images proxy
+app.post('/api/openai/images', async (req, res) => {
+  try {
+    const apiKey = process.env.OPENAI_API_KEY || req.headers['x-openai-key'];
+    if (!apiKey) return res.status(400).json({ error: 'No OpenAI API key.' });
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(req.body),
+    });
+    const data = await response.json().catch(() => ({}));
+    res.status(response.status).json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// OpenAI image edits proxy (base64 → FormData)
+app.post('/api/openai/images/edits', async (req, res) => {
+  try {
+    const apiKey = process.env.OPENAI_API_KEY || req.headers['x-openai-key'];
+    if (!apiKey) return res.status(400).json({ error: 'No OpenAI API key.' });
+    const { prompt, size, quality, images } = req.body;
+    const formData = new FormData();
+    formData.append('model', 'gpt-image-1');
+    formData.append('prompt', prompt);
+    formData.append('n', '1');
+    formData.append('size', size || '1024x1024');
+    formData.append('quality', quality || 'high');
+    formData.append('output_format', 'b64_json');
+    for (let i = 0; i < images.length; i++) {
+      const [header, b64] = images[i].split(',');
+      const mimeType = header.replace('data:', '').replace(';base64', '');
+      const bytes = Buffer.from(b64, 'base64');
+      formData.append('image[]', new Blob([bytes], { type: mimeType }), `ref_${i}.png`);
+    }
+    const response = await fetch('https://api.openai.com/v1/images/edits', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: formData,
+    });
+    const data = await response.json().catch(() => ({}));
+    res.status(response.status).json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Kling video proxy (JWT signed)
+app.post('/api/kling/task', async (req, res) => {
+  try {
+    const accessKey = process.env.KLING_ACCESS_KEY || req.headers['x-kling-key'];
+    const secretKey = process.env.KLING_SECRET_KEY || req.headers['x-kling-secret'];
+    if (!accessKey || !secretKey) return res.status(400).json({ error: 'No Kling API keys.' });
+    const { type = 'text2video', ...body } = req.body;
+    const endpoint = type === 'image2video'
+      ? 'https://api.klingai.com/v1/videos/image2video'
+      : 'https://api.klingai.com/v1/videos/text2video';
+    const jwt = await signKlingJWT(accessKey, secretKey);
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json().catch(() => ({}));
+    res.status(response.status).json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/kling/task/:id', async (req, res) => {
+  try {
+    const accessKey = process.env.KLING_ACCESS_KEY || req.headers['x-kling-key'];
+    const secretKey = process.env.KLING_SECRET_KEY || req.headers['x-kling-secret'];
+    if (!accessKey || !secretKey) return res.status(400).json({ error: 'No Kling API keys.' });
+    const jwt = await signKlingJWT(accessKey, secretKey);
+    const response = await fetch(`https://api.klingai.com/v1/videos/text2video/${req.params.id}`, {
+      headers: { Authorization: `Bearer ${jwt}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    res.status(response.status).json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// fal.ai proxy
+app.post('/api/fal', async (req, res) => {
+  try {
+    const apiKey = process.env.FAL_API_KEY || req.headers['x-fal-key'];
+    if (!apiKey) return res.status(400).json({ error: 'No fal.ai API key.' });
+    const { modelId, referenceImages, ...body } = req.body;
+    if (referenceImages && referenceImages.length > 0) {
+      const converted = await Promise.all(referenceImages.map(async (imgUrl) => {
+        if (imgUrl.startsWith('data:')) return imgUrl;
+        try {
+          const imgRes = await fetch(imgUrl);
+          const buffer = await imgRes.arrayBuffer();
+          const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+          return `data:${contentType};base64,${Buffer.from(buffer).toString('base64')}`;
+        } catch { return imgUrl; }
+      }));
+      if (converted.length > 0) body.image_url = converted[0];
+      if (converted.length > 1) body.image_urls = converted;
+    }
+    const response = await fetch(`https://fal.run/${modelId}`, {
+      method: 'POST',
+      headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json().catch(() => ({}));
+    res.status(response.status).json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ============================================================
+// AIFLOW — Workflow Persistence (JSON file)
+// ============================================================
+const WORKFLOW_DB = path.join(WORK_DIR, 'workflows.db.json');
+
+function loadWorkflowDb() {
+  try { return JSON.parse(fs.readFileSync(WORKFLOW_DB, 'utf8')); } catch { return { workflows: [] }; }
+}
+
+function saveWorkflowDb(db) {
+  fs.writeFileSync(WORKFLOW_DB, JSON.stringify(db, null, 2));
+}
+
+app.get('/workflows', (req, res) => {
+  const db = loadWorkflowDb();
+  res.json(db.workflows.map(w => ({ id: w.id, name: w.name, updatedAt: w.updatedAt, nodeCount: w.nodes?.length ?? 0 })));
+});
+
+app.get('/workflows/:id', (req, res) => {
+  const db = loadWorkflowDb();
+  const w = db.workflows.find(w => w.id === req.params.id);
+  if (!w) return res.status(404).json({ error: 'Not found' });
+  res.json(w);
+});
+
+app.post('/workflows', (req, res) => {
+  const db = loadWorkflowDb();
+  const workflow = { id: randomUUID(), ...req.body, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+  db.workflows.push(workflow);
+  saveWorkflowDb(db);
+  res.json(workflow);
+});
+
+app.put('/workflows/:id', (req, res) => {
+  const db = loadWorkflowDb();
+  const idx = db.workflows.findIndex(w => w.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  db.workflows[idx] = { ...db.workflows[idx], ...req.body, updatedAt: new Date().toISOString() };
+  saveWorkflowDb(db);
+  res.json(db.workflows[idx]);
+});
+
+app.delete('/workflows/:id', (req, res) => {
+  const db = loadWorkflowDb();
+  const idx = db.workflows.findIndex(w => w.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  db.workflows.splice(idx, 1);
+  saveWorkflowDb(db);
+  res.json({ ok: true });
 });
 
 // ============================================================
