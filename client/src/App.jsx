@@ -9,8 +9,8 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/:instanceId" element={<Canvas />} />
-        <Route path="/:instanceId/studio" element={<BannerStudio />} />
+        <Route path="/studio" element={<BannerStudio />} />
+        <Route path="/canvas/:instanceId" element={<Canvas />} />
       </Routes>
     </BrowserRouter>
   )

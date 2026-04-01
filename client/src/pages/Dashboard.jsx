@@ -98,7 +98,7 @@ export default function Dashboard() {
         {/* Instance grid */}
         <div className="dash-grid">
           {instances.map(inst => (
-            <div key={inst.id} className="inst-card" onClick={() => navigate(`/${inst.id}`)}>
+            <div key={inst.id} className="inst-card" onClick={() => navigate(`/canvas/${inst.id}`)}>
               <div className="inst-top">
                 <div className="inst-icon" style={{ background: inst.color }}>
                   {inst.name.charAt(0).toUpperCase()}
@@ -117,10 +117,10 @@ export default function Dashboard() {
                 </span>
               </div>
               <div className="inst-actions-row">
-                <button className="inst-action" onClick={e => { e.stopPropagation(); navigate(`/${inst.id}/studio`) }}>
+                <button className="inst-action" onClick={e => { e.stopPropagation(); navigate('/studio') }}>
                   Banner Studio
                 </button>
-                <button className="inst-action primary" onClick={e => { e.stopPropagation(); navigate(`/${inst.id}`) }}>
+                <button className="inst-action primary" onClick={e => { e.stopPropagation(); navigate(`/canvas/${inst.id}`) }}>
                   Open
                 </button>
               </div>
@@ -142,17 +142,14 @@ export default function Dashboard() {
           <h2 className="dash-section-title">Quick Access</h2>
         </div>
         <div className="quick-grid">
-          <div className="quick-card" onClick={() => {
-            if (instances.length === 0) { setShowNew(true); return }
-            navigate(`/${instances[0].id}/studio`)
-          }}>
+          <div className="quick-card" onClick={() => navigate('/studio')}>
             <div className="quick-icon">⚡</div>
             <div className="quick-label">Banner Studio</div>
             <div className="quick-desc">Generate banners from key art</div>
           </div>
           <div className="quick-card" onClick={() => {
             if (instances.length === 0) { setShowNew(true); return }
-            navigate(`/${instances[0].id}`)
+            navigate(`/canvas/${instances[0].id}`)
           }}>
             <div className="quick-icon">◎</div>
             <div className="quick-label">Canvas</div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 const API = ''
 
@@ -42,7 +42,6 @@ const MODELS = [
 ]
 
 export default function BannerStudio() {
-  const { instanceId } = useParams()
   const navigate = useNavigate()
   const [banners, setBanners] = useState([])
   const [selected, setSelected] = useState([])
@@ -193,7 +192,7 @@ export default function BannerStudio() {
       <header className="header">
         <div className="header-left">
           <div className="brand">
-            <button className="back-btn" onClick={() => navigate(instanceId ? `/${instanceId}` : '/')}>←</button>
+            <button className="back-btn" onClick={() => navigate('/')}>←</button>
             <div className="brand-mark">S</div>
             <div className="brand-text">
               <span className="brand-name">Stanley's Post</span>

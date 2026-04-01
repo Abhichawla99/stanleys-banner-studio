@@ -266,7 +266,7 @@ function CanvasInner() {
         </div>
         <div className="canvas-header-center">
           <button className={`cv-tab ${true ? 'active' : ''}`}>Canvas</button>
-          <button className="cv-tab" onClick={() => navigate(`/${instanceId}/studio`)}>Banner Studio</button>
+          <button className="cv-tab" onClick={() => navigate('/studio')}>Banner Studio</button>
         </div>
         <div className="canvas-header-right">
           <button className="cv-add-btn" onClick={() => setShowPalette(!showPalette)}>
