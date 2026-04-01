@@ -9,6 +9,7 @@ export default defineConfig({
       '/api': 'http://localhost:3001',
       '/outputs': 'http://localhost:3001',
       '/templates': 'http://localhost:3001',
-    }
+    },
+    historyApiFallback: true,
   }
 })
