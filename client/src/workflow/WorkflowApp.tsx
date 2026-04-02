@@ -1,9 +1,9 @@
 import {
-  ReactFlow, Background, BackgroundVariant, type NodeTypes,
+  ReactFlow, Background, BackgroundVariant, type NodeTypes, type EdgeTypes,
   MiniMap, Panel, useReactFlow, useViewport, ReactFlowProvider,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Plus, Search, MousePointer2, Hand, Undo2, Redo2,
   ZoomIn, ZoomOut, Settings, Image, Video, Film, Type,
@@ -13,7 +13,7 @@ import {
   Eye, SplitSquareHorizontal, Hash, Combine, Crop, Repeat2,
   Play, Square, Loader2, RotateCcw, CheckCircle, AlertCircle,
   Library, Send, Palette, Target, Layers, Monitor,
-  ShieldCheck, Package,
+  ShieldCheck, Package, Sun, Moon,
 } from 'lucide-react'
 
 import { useNodeStore } from './store'
@@ -54,6 +54,11 @@ import { PlatformPresetsNode }   from './nodes/PlatformPresetsNode'
 import { ApprovalGateNode }      from './nodes/ApprovalGateNode'
 import { ExportPackNode }        from './nodes/ExportPackNode'
 import { TemplateModeButtons }   from './components/TemplateMode'
+import { AnimatedEdge }          from './components/AnimatedEdge'
+
+const edgeTypes: EdgeTypes = {
+  default: AnimatedEdge,
+}
 
 const nodeTypes: NodeTypes = {
   textInput: TextInputNode,
@@ -97,83 +102,101 @@ interface NodeDef { type: string; label: string; icon: React.ReactNode; color: s
 
 const PALETTE: { category: string; nodes: NodeDef[] }[] = [
   {
-    category: 'Brand & Campaign',
+    category: 'Inputs',
     nodes: [
-      { type: 'brandKit',       label: 'Brand Kit',         icon: <Palette size={13} />,    color: '#f43f5e', description: 'Logo, colors, fonts, tone of voice' },
-      { type: 'campaignContext', label: 'Campaign Context', icon: <Target size={13} />,     color: '#d97706', description: 'Objective, audience, key message' },
+      { type: 'textInput',   label: 'Text Input',       icon: <Type size={13} />,       color: '#8b5cf6', description: 'Manual prompt input' },
+      { type: 'fileUpload',  label: 'Reference Image',  icon: <ImagePlus size={13} />,  color: '#7c3aed', description: 'Upload or link reference image' },
+      { type: 'brandKit',    label: 'Brand Kit',         icon: <Palette size={13} />,    color: '#f43f5e', description: 'Logo, colors, fonts, tone of voice' },
+      { type: 'campaignContext', label: 'Campaign Context', icon: <Target size={13} />,  color: '#fb7185', description: 'Objective, audience, key message' },
     ],
   },
   {
     category: 'Triggers',
     nodes: [
-      { type: 'textInput',   label: 'Text Input',   icon: <Type size={13} />,    color: '#a78bfa', description: 'Manual prompt input' },
-      { type: 'webhook',     label: 'Webhook',      icon: <Webhook size={13} />, color: '#e879f9', description: 'HTTP webhook trigger' },
-      { type: 'schedule',    label: 'Schedule',     icon: <Clock size={13} />,   color: '#fbbf24', description: 'Time-based trigger' },
+      { type: 'webhook',     label: 'Webhook',      icon: <Webhook size={13} />, color: '#a78bfa', description: 'HTTP webhook trigger' },
+      { type: 'schedule',    label: 'Schedule',     icon: <Clock size={13} />,   color: '#c4b5fd', description: 'Time-based trigger' },
     ],
   },
   {
     category: 'AI & Text',
     nodes: [
-      { type: 'llm',            label: 'LLM Prompt',      icon: <Sparkles size={13} />,   color: '#c084fc', description: 'Gemini / GPT-4 text gen' },
-      { type: 'promptEnhancer', label: 'Prompt Enhancer', icon: <Wand2 size={13} />,      color: '#f472b6', description: 'AI-powered prompt upgrade' },
-      { type: 'promptBuilder',  label: 'Prompt Builder',  icon: <Wand2 size={13} />,      color: 'var(--green)', description: 'Template + style modifier' },
-      { type: 'textSplit',           label: 'Text Split',          icon: <ListFilter size={13} />, color: '#d97706', description: 'Split text into a list' },
-      { type: 'promptConcatenator', label: 'Prompt Concatenator', icon: <Combine size={13} />,    color: '#a3e635', description: 'Merge A/B/C/D text inputs into one' },
-      { type: 'iterator',           label: 'Text Iterator',       icon: <Repeat2 size={13} />,    color: '#38bdf8', description: 'Step through a list of prompts' },
-      { type: 'filter',             label: 'Filter / Router',     icon: <Filter size={13} />,     color: '#f97316', description: 'Route on conditions' },
-      { type: 'httpRequest',        label: 'HTTP Request',        icon: <Globe size={13} />,      color: '#38bdf8', description: 'Call any external API' },
-      { type: 'storyboard',         label: 'Storyboard',          icon: <Film size={13} />,       color: '#e879f9', description: 'Break concept into scenes with LLM' },
+      { type: 'llm',            label: 'LLM Prompt',      icon: <Sparkles size={13} />,   color: '#6366f1', description: 'Gemini / GPT-4 text gen' },
+      { type: 'promptEnhancer', label: 'Prompt Enhancer', icon: <Wand2 size={13} />,      color: '#818cf8', description: 'AI-powered prompt upgrade' },
+      { type: 'promptBuilder',  label: 'Prompt Builder',  icon: <Wand2 size={13} />,      color: '#a5b4fc', description: 'Template + style modifier' },
+      { type: 'storyboard',         label: 'Storyboard',          icon: <Film size={13} />,       color: '#4f46e5', description: 'Break concept into scenes with LLM' },
     ],
   },
   {
     category: 'Image Generation',
     nodes: [
       { type: 'nanoBanana',    label: 'Nano Banana 2',  icon: <Image size={13} />,     color: '#f59e0b', description: 'Gemini Flash image gen' },
-      { type: 'imagen4',       label: 'Imagen 4',       icon: <Sparkles size={13} />,  color: 'var(--green)', description: 'Google Imagen 4 via Gemini API' },
-      { type: 'gptImage',      label: 'GPT Image 1',    icon: <Image size={13} />,     color: '#22d3ee', description: "OpenAI's gpt-image-1 model" },
-      { type: 'flux',          label: 'Flux / Recraft', icon: <Zap size={13} />,       color: '#f59e0b', description: 'Flux Pro, Recraft, Ideogram via fal.ai' },
-      { type: 'imageTransform', label: 'Resize / Crop', icon: <Crop size={13} />,      color: '#d97706', description: 'Resize or crop any image' },
-      { type: 'fileUpload',    label: 'Reference Image', icon: <ImagePlus size={13} />, color: '#e879f9', description: 'Upload or link reference image' },
+      { type: 'imagen4',       label: 'Imagen 4',       icon: <Sparkles size={13} />,  color: '#fbbf24', description: 'Google Imagen 4 via Gemini API' },
+      { type: 'gptImage',      label: 'GPT Image 1',    icon: <Image size={13} />,     color: '#f97316', description: "OpenAI's gpt-image-1 model" },
+      { type: 'flux',          label: 'Flux / Recraft', icon: <Zap size={13} />,       color: '#fb923c', description: 'Flux Pro, Recraft, Ideogram via fal.ai' },
     ],
   },
   {
     category: 'Video Generation',
     nodes: [
-      { type: 'kling', label: 'Kling AI', icon: <Video size={13} />, color: '#34d399', description: 'Kling v2-master video' },
-      { type: 'veo',   label: 'Veo 3.1',  icon: <Film size={13} />,  color: '#60a5fa', description: 'Google Veo 3.1 video' },
+      { type: 'kling', label: 'Kling AI', icon: <Video size={13} />, color: '#10b981', description: 'Kling v2-master video' },
+      { type: 'veo',   label: 'Veo 3.1',  icon: <Film size={13} />,  color: '#34d399', description: 'Google Veo 3.1 video' },
     ],
   },
   {
     category: 'Vision & Analysis',
     nodes: [
-      { type: 'imageDescriber', label: 'Image Describer', icon: <Eye size={13} />,                   color: '#67e8f9', description: 'Describe image with Gemini Vision' },
-      { type: 'compare',        label: 'Compare',         icon: <SplitSquareHorizontal size={13} />,  color: '#a78bfa', description: 'Side-by-side image comparison' },
+      { type: 'imageDescriber', label: 'Image Describer', icon: <Eye size={13} />,                   color: '#06b6d4', description: 'Describe image with Gemini Vision' },
+      { type: 'compare',        label: 'Compare',         icon: <SplitSquareHorizontal size={13} />,  color: '#22d3ee', description: 'Side-by-side image comparison' },
     ],
   },
   {
-    category: 'Creative Tools',
+    category: 'Tools',
     nodes: [
-      { type: 'batchVariants',   label: 'Batch Variants',   icon: <Layers size={13} />,     color: '#a78bfa', description: 'Generate N variations of any prompt/image' },
-      { type: 'platformPresets', label: 'Platform Presets', icon: <Monitor size={13} />,    color: '#06b6d4', description: 'Recompose image for Instagram, YouTube, etc.' },
-      { type: 'approvalGate',    label: 'Approval Gate',    icon: <ShieldCheck size={13} />, color: '#e879f9', description: 'Pause workflow for human review' },
+      { type: 'textSplit',           label: 'Text Split',          icon: <ListFilter size={13} />, color: '#3b82f6', description: 'Split text into a list' },
+      { type: 'promptConcatenator', label: 'Prompt Concatenator', icon: <Combine size={13} />,    color: '#60a5fa', description: 'Merge A/B/C/D text inputs into one' },
+      { type: 'iterator',           label: 'Text Iterator',       icon: <Repeat2 size={13} />,    color: '#93c5fd', description: 'Step through a list of prompts' },
+      { type: 'filter',             label: 'Filter / Router',     icon: <Filter size={13} />,     color: '#2563eb', description: 'Route on conditions' },
+      { type: 'imageTransform',     label: 'Resize / Crop',       icon: <Crop size={13} />,       color: '#d97706', description: 'Resize or crop any image' },
+      { type: 'httpRequest',        label: 'HTTP Request',        icon: <Globe size={13} />,      color: '#0ea5e9', description: 'Call any external API' },
+      { type: 'seed',               label: 'Seed',                icon: <Hash size={13} />,       color: '#94a3b8', description: 'Fixed or random seed value' },
+    ],
+  },
+  {
+    category: 'Creative',
+    nodes: [
+      { type: 'batchVariants',   label: 'Batch Variants',   icon: <Layers size={13} />,     color: '#d946ef', description: 'Generate N variations of any prompt/image' },
+      { type: 'platformPresets', label: 'Platform Presets', icon: <Monitor size={13} />,    color: '#e879f9', description: 'Recompose image for Instagram, YouTube, etc.' },
+      { type: 'approvalGate',    label: 'Approval Gate',    icon: <ShieldCheck size={13} />, color: '#c026d3', description: 'Pause workflow for human review' },
     ],
   },
   {
     category: 'Output',
     nodes: [
-      { type: 'imageDisplay',   label: 'Image Viewer',    icon: <LayoutTemplate size={13} />, color: '#f97316', description: 'Display generated images' },
+      { type: 'imageDisplay',   label: 'Image Viewer',    icon: <LayoutTemplate size={13} />, color: '#84cc16', description: 'Display generated images' },
       { type: 'videoDisplay',   label: 'Video Viewer',    icon: <PlayCircle size={13} />,     color: '#a3e635', description: 'Play generated videos' },
-      { type: 'webhookOutput',  label: 'Webhook Output',  icon: <Send size={13} />,           color: '#22d3ee', description: 'POST results to an external URL' },
-      { type: 'exportPack',     label: 'Export Pack',     icon: <Package size={13} />,        color: '#a3e635', description: 'Download all outputs as a ZIP file' },
+      { type: 'webhookOutput',  label: 'Webhook Output',  icon: <Send size={13} />,           color: '#65a30d', description: 'POST results to an external URL' },
+      { type: 'exportPack',     label: 'Export Pack',     icon: <Package size={13} />,        color: '#4ade80', description: 'Download all outputs as a ZIP file' },
     ],
   },
   {
     category: 'Utilities',
     nodes: [
-      { type: 'seed', label: 'Seed',        icon: <Hash size={13} />,     color: '#94a3b8', description: 'Fixed or random seed value' },
-      { type: 'note', label: 'Sticky Note', icon: <StickyNote size={13} />, color: '#c4b5fd', description: 'Annotate your workflow' },
+      { type: 'note', label: 'Sticky Note', icon: <StickyNote size={13} />, color: '#cbd5e1', description: 'Annotate your workflow' },
     ],
   },
+]
+
+/* ─── CONTEXT MENU (right-click on canvas) ─── */
+const QUICK_ADD: { label: string; type: string; icon: React.ReactNode; color: string }[] = [
+  { label: 'Text Input',       type: 'textInput',   icon: <Type size={12} />,       color: '#8b5cf6' },
+  { label: 'Reference Image',  type: 'fileUpload',  icon: <ImagePlus size={12} />,  color: '#7c3aed' },
+  { label: 'LLM Prompt',       type: 'llm',         icon: <Sparkles size={12} />,   color: '#6366f1' },
+  { label: 'Nano Banana 2',    type: 'nanoBanana',  icon: <Image size={12} />,      color: '#f59e0b' },
+  { label: 'Imagen 4',         type: 'imagen4',     icon: <Sparkles size={12} />,   color: '#fbbf24' },
+  { label: 'GPT Image 1',      type: 'gptImage',    icon: <Image size={12} />,      color: '#f97316' },
+  { label: 'Flux / Recraft',   type: 'flux',        icon: <Zap size={12} />,        color: '#fb923c' },
+  { label: 'Image Viewer',     type: 'imageDisplay', icon: <LayoutTemplate size={12} />, color: '#84cc16' },
+  { label: 'Sticky Note',      type: 'note',        icon: <StickyNote size={12} />, color: '#cbd5e1' },
 ]
 
 /* ─── SETTINGS PANEL ─── */
@@ -285,10 +308,19 @@ function NodePalette({ open, onAdd }: { open: boolean; onAdd: (type: string) => 
 }
 
 /* ─── BOTTOM TOOLBAR ─── */
-function BottomToolbar({ tool, setTool }: { tool: 'select' | 'pan'; setTool: (t: 'select' | 'pan') => void }) {
+function BottomToolbar({ tool, setTool, theme, setTheme }: {
+  tool: 'select' | 'pan'; setTool: (t: 'select' | 'pan') => void
+  theme: 'light' | 'dark'; setTheme: (t: 'light' | 'dark') => void
+}) {
   const { zoomIn, zoomOut, fitView, zoomTo } = useReactFlow()
   const { zoom } = useViewport()
   const { undo, redo, past, future } = useNodeStore()
+
+  function toggleTheme() {
+    const next = theme === 'light' ? 'dark' : 'light'
+    setTheme(next)
+    localStorage.setItem('wf_theme', next)
+  }
 
   return (
     <div className="bottom-toolbar">
@@ -319,6 +351,10 @@ function BottomToolbar({ tool, setTool }: { tool: 'select' | 'pan'; setTool: (t:
       <button className="tl-btn" onClick={() => fitView({ padding: 0.15, duration: 400 })} title="Fit view (F)">
         <Maximize2 size={13} />
       </button>
+      <div className="tl-sep" />
+      <button className={`tl-btn`} onClick={toggleTheme} title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}>
+        {theme === 'light' ? <Moon size={13} /> : <Sun size={13} />}
+      </button>
     </div>
   )
 }
@@ -333,12 +369,34 @@ function AppContent() {
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [workflowName, setWorkflowName] = useState('Untitled')
   const [savedWorkflowId, setSavedWorkflowId] = useState<string | undefined>()
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('wf_theme') as 'light' | 'dark') ?? 'light')
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; canvasX: number; canvasY: number } | null>(null)
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const clipboardRef = useRef<{ nodes: any[]; edges: any[] } | null>(null)
+  const { screenToFlowPosition } = useReactFlow()
 
   function spawn(type: string, pos?: { x: number; y: number }) {
     const id = `node-${nodeIdCounter++}`
     const position = pos ?? { x: 280 + Math.random() * 320, y: 100 + Math.random() * 220 }
     addNode({ id, type, position, data: {} })
   }
+
+  const onContextMenu = useCallback((e: React.MouseEvent) => {
+    // Only show on canvas background, not on nodes
+    const target = e.target as HTMLElement
+    if (target.closest('.node-wrapper') || target.closest('.react-flow__edge')) return
+    e.preventDefault()
+    const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+    setCtxMenu({ x: e.clientX, y: e.clientY, canvasX: flowPos.x, canvasY: flowPos.y })
+  }, [screenToFlowPosition])
+
+  // Close context menu on any click
+  useEffect(() => {
+    if (!ctxMenu) return
+    const close = () => setCtxMenu(null)
+    window.addEventListener('mousedown', close)
+    return () => window.removeEventListener('mousedown', close)
+  }, [ctxMenu])
 
   function clearAll() {
     if (nodes.length === 0) return
@@ -387,9 +445,96 @@ function AppContent() {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement).tagName
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(tag)) return
-      if (e.key === 'v' && !e.metaKey && !e.ctrlKey) setTool('select')
-      if (e.key === 'h' && !e.metaKey && !e.ctrlKey) setTool('pan')
-      if (e.key === 'n' && !e.metaKey && !e.ctrlKey) setPaletteOpen(o => !o)
+      const mod = e.metaKey || e.ctrlKey
+
+      if (e.key === 'v' && !mod) setTool('select')
+      if (e.key === 'h' && !mod) setTool('pan')
+      if (e.key === 'n' && !mod) setPaletteOpen(o => !o)
+
+      // Copy
+      if (mod && e.key === 'c') {
+        const sel = useNodeStore.getState().nodes.filter(n => n.selected)
+        if (sel.length === 0) return
+        const selIds = new Set(sel.map(n => n.id))
+        const selEdges = useNodeStore.getState().edges.filter(e => selIds.has(e.source) && selIds.has(e.target))
+        clipboardRef.current = { nodes: sel, edges: selEdges }
+      }
+
+      // Cut
+      if (mod && e.key === 'x') {
+        const sel = useNodeStore.getState().nodes.filter(n => n.selected)
+        if (sel.length === 0) return
+        const selIds = new Set(sel.map(n => n.id))
+        const selEdges = useNodeStore.getState().edges.filter(e => selIds.has(e.source) && selIds.has(e.target))
+        clipboardRef.current = { nodes: sel, edges: selEdges }
+        const store = useNodeStore.getState()
+        store.snapshot()
+        useNodeStore.setState({
+          nodes: store.nodes.filter(n => !n.selected),
+          edges: store.edges.filter(e => !selIds.has(e.source) && !selIds.has(e.target)),
+        })
+      }
+
+      // Paste
+      if (mod && e.key === 'v') {
+        e.preventDefault()
+        const clip = clipboardRef.current
+        if (!clip || clip.nodes.length === 0) return
+        const store = useNodeStore.getState()
+        store.snapshot()
+        const idMap = new Map<string, string>()
+        const offset = 40
+        const newNodes = clip.nodes.map(n => {
+          const newId = `node-${nodeIdCounter++}`
+          idMap.set(n.id, newId)
+          return { ...n, id: newId, position: { x: n.position.x + offset, y: n.position.y + offset }, selected: true }
+        })
+        const newEdges = clip.edges.map((e: any) => ({
+          ...e,
+          id: `edge-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          source: idMap.get(e.source)!,
+          target: idMap.get(e.target)!,
+        }))
+        // Deselect existing nodes
+        const deselected = store.nodes.map(n => ({ ...n, selected: false }))
+        useNodeStore.setState({
+          nodes: [...deselected, ...newNodes],
+          edges: [...store.edges, ...newEdges],
+        })
+        // Shift clipboard offset for next paste
+        clipboardRef.current = {
+          nodes: clip.nodes.map(n => ({ ...n, position: { x: n.position.x + offset, y: n.position.y + offset } })),
+          edges: clip.edges,
+        }
+      }
+
+      // Duplicate (Cmd+D)
+      if (mod && e.key === 'd') {
+        e.preventDefault()
+        const sel = useNodeStore.getState().nodes.filter(n => n.selected)
+        if (sel.length === 0) return
+        const selIds = new Set(sel.map(n => n.id))
+        const selEdges = useNodeStore.getState().edges.filter(e => selIds.has(e.source) && selIds.has(e.target))
+        const store = useNodeStore.getState()
+        store.snapshot()
+        const idMap = new Map<string, string>()
+        const newNodes = sel.map(n => {
+          const newId = `node-${nodeIdCounter++}`
+          idMap.set(n.id, newId)
+          return { ...n, id: newId, position: { x: n.position.x + 40, y: n.position.y + 40 }, selected: true }
+        })
+        const newEdges = selEdges.map((e: any) => ({
+          ...e,
+          id: `edge-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          source: idMap.get(e.source)!,
+          target: idMap.get(e.target)!,
+        }))
+        const deselected = store.nodes.map(n => ({ ...n, selected: false }))
+        useNodeStore.setState({
+          nodes: [...deselected, ...newNodes],
+          edges: [...store.edges, ...newEdges],
+        })
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -411,7 +556,7 @@ function AppContent() {
   }, [])
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: 'var(--bg)' }}>
+    <div className={theme === 'dark' ? 'wf-dark' : ''} style={{ width: '100vw', height: '100vh', background: 'var(--bg)' }}>
 
       {/* Icon sidebar */}
       <div className="icon-sidebar">
@@ -543,7 +688,7 @@ function AppContent() {
       )}
 
       {/* Canvas */}
-      <div className="canvas-area" onDrop={onDrop} onDragOver={e => e.preventDefault()}>
+      <div className="canvas-area" ref={canvasRef} onDrop={onDrop} onDragOver={e => e.preventDefault()} onContextMenu={onContextMenu}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -551,19 +696,22 @@ function AppContent() {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          connectionRadius={40}
+          minZoom={0.01}
+          maxZoom={4}
           fitView
           fitViewOptions={{ padding: 0.2 }}
           panOnDrag={tool === 'pan' ? [0, 1, 2] : [1, 2]}
           selectionOnDrag={tool === 'select'}
           defaultEdgeOptions={{
             animated: false,
-            style: { stroke: 'rgba(255,255,255,0.16)', strokeWidth: 1.5 },
           }}
           deleteKeyCode={['Delete', 'Backspace']}
           multiSelectionKeyCode="Shift"
           style={{ background: 'var(--canvas-bg)' }}
         >
-          <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} color="var(--canvas-dot)" />
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} color="var(--canvas-dot)" />
           <MiniMap
             style={{ background: 'var(--s1)', border: '1px solid var(--border2)' }}
             nodeColor={() => '#666666'}
@@ -571,23 +719,49 @@ function AppContent() {
             position="bottom-right"
           />
           <Panel position="bottom-center" style={{ marginBottom: 18 }}>
-            <BottomToolbar tool={tool} setTool={setTool} />
+            <BottomToolbar tool={tool} setTool={setTool} theme={theme} setTheme={setTheme} />
           </Panel>
         </ReactFlow>
 
         {nodes.length === 0 && (
           <div className="canvas-empty">
-            <div style={{ fontSize: 52, marginBottom: 16, opacity: 0.06 }}>✦</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'rgba(255,255,255,0.07)', marginBottom: 8 }}>
+            <div style={{ fontSize: 52, marginBottom: 16, opacity: 0.08 }}>✦</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--canvas-dot)', opacity: 0.8, marginBottom: 8 }}>
               Build your AI workflow
             </div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.04)', lineHeight: 1.9 }}>
+            <div style={{ fontSize: 12, color: 'var(--canvas-dot)', opacity: 0.5, lineHeight: 1.9 }}>
               Click + or press N to open the node palette<br />
-              Drag nodes onto the canvas<br />
+              Right-click the canvas to quick-add a node<br />
               <span style={{ opacity: 0.6, fontSize: 10 }}>
-                Text Input → LLM → Text Split → Nano Banana 2 → Kling
+                Text Input → LLM → Nano Banana 2 → Image Viewer
               </span>
             </div>
+          </div>
+        )}
+
+        {/* Right-click context menu */}
+        {ctxMenu && (
+          <div
+            className="canvas-ctx-menu"
+            style={{ left: ctxMenu.x, top: ctxMenu.y }}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <div className="ctx-menu-header">Add Node</div>
+            {QUICK_ADD.map(item => (
+              <button
+                key={item.type}
+                className="ctx-menu-item"
+                onClick={() => { spawn(item.type, { x: ctxMenu.canvasX - 140, y: ctxMenu.canvasY - 30 }); setCtxMenu(null) }}
+              >
+                <span className="ctx-menu-icon" style={{ color: item.color }}>{item.icon}</span>
+                <span>{item.label}</span>
+              </button>
+            ))}
+            <div className="ctx-menu-divider" />
+            <button className="ctx-menu-item" onClick={() => { setPaletteOpen(true); setCtxMenu(null) }}>
+              <span className="ctx-menu-icon" style={{ color: 'var(--t3)' }}><Plus size={12} /></span>
+              <span>Browse All Nodes...</span>
+            </button>
           </div>
         )}
       </div>

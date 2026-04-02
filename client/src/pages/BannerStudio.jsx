@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 
 const API = ''
 
-const DEFAULT_PROMPT = `You are a senior art director redesigning a piece of key art for a {{RATIO}} banner ({{ART_WIDTH}}×{{ART_HEIGHT}} px).
+const DEFAULT_PROMPT = `You are a senior art director redesigning a piece of key art for a {{RATIO}} banner.
 
 === SAFE ZONES ===
 The final banner will have a frame overlaid on top. These areas will be PARTIALLY COVERED:
@@ -69,6 +69,7 @@ export default function BannerStudio() {
   const [selectedResult, setSelectedResult] = useState(null)
   const [addingFormat, setAddingFormat] = useState(false)
   const [newFormatName, setNewFormatName] = useState('')
+  const [artZoneModal, setArtZoneModal] = useState(null) // { file, preview, imgW, imgH }
   const [bannerNotes, setBannerNotes] = useState({})
   const [notesOpen, setNotesOpen] = useState({})
   const [variations, setVariations] = useState(1)
@@ -105,12 +106,30 @@ export default function BannerStudio() {
     loadBanners()
   }
 
-  const addFormat = async (file) => {
+  const openArtZoneModal = (file) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        setArtZoneModal({ file, preview: e.target.result, imgW: img.width, imgH: img.height })
+      }
+      img.src = e.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const submitFormat = async (artZoneRect) => {
+    const file = artZoneModal?.file
     if (!file || !newFormatName.trim()) return
+    setArtZoneModal(null)
     setAddingFormat(true)
     const form = new FormData()
     form.append('frame', file)
     form.append('label', newFormatName.trim())
+    if (artZoneRect) {
+      form.append('artZone', JSON.stringify(artZoneRect))
+    }
     try {
       const res = await fetch(`${API}/api/formats/new`, { method: 'POST', body: form })
       const data = await res.json()
@@ -213,7 +232,8 @@ export default function BannerStudio() {
                 return [...p, data]
               })
             } else if (data.type === 'complete') {
-              setResults(r => [...r, data])
+              console.log('[SSE] complete:', data.jobId, data.bannerId, 'v' + data.variationIndex)
+              setResults(r => { const next = [...r, data]; console.log('[SSE] results count:', next.length); return next })
               setProgress(p => p.map(x => (x.jobId || x.bannerId) === (data.jobId || data.bannerId) ? { ...x, step: 'done' } : x))
             } else if (data.type === 'error') {
               setProgress(p => p.map(x => (x.jobId || x.bannerId) === (data.jobId || data.bannerId) ? { ...x, step: 'error', error: data.error } : x))
@@ -379,7 +399,7 @@ export default function BannerStudio() {
                     hidden
                     ref={newFormatRef}
                     onChange={(e) => {
-                      if (e.target.files[0]) addFormat(e.target.files[0])
+                      if (e.target.files[0]) openArtZoneModal(e.target.files[0])
                       e.target.value = ''
                     }}
                   />
@@ -626,6 +646,129 @@ export default function BannerStudio() {
           </div>
         </div>
       </main>
+
+      {/* ===== ART ZONE SELECTOR MODAL ===== */}
+      {artZoneModal && (() => {
+        const { preview, imgW, imgH } = artZoneModal
+        const maxDisplayW = Math.min(800, window.innerWidth - 120)
+        const maxDisplayH = Math.min(500, window.innerHeight - 300)
+        const scale = Math.min(maxDisplayW / imgW, maxDisplayH / imgH, 1)
+        const displayW = Math.round(imgW * scale)
+        const displayH = Math.round(imgH * scale)
+
+        const ArtZoneSelector = () => {
+          const canvasRef = React.useRef(null)
+          const [zone, setZone] = React.useState({ x: Math.round(imgW * 0.05), y: Math.round(imgH * 0.05), w: Math.round(imgW * 0.6), h: Math.round(imgH * 0.9) })
+          const [dragging, setDragging] = React.useState(null) // 'move' | 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w'
+          const dragStart = React.useRef(null)
+
+          const toDisplay = (v, dim) => Math.round(v * scale)
+          const fromDisplay = (v) => Math.round(v / scale)
+
+          const dz = { x: toDisplay(zone.x), y: toDisplay(zone.y), w: toDisplay(zone.w), h: toDisplay(zone.h) }
+
+          const clamp = (val, min, max) => Math.max(min, Math.min(max, val))
+
+          const handleMouseDown = (e, type) => {
+            e.preventDefault()
+            e.stopPropagation()
+            const rect = canvasRef.current.getBoundingClientRect()
+            dragStart.current = { mx: e.clientX - rect.left, my: e.clientY - rect.top, zone: { ...zone }, type }
+            setDragging(type)
+          }
+
+          React.useEffect(() => {
+            if (!dragging) return
+            const handleMove = (e) => {
+              const rect = canvasRef.current.getBoundingClientRect()
+              const mx = e.clientX - rect.left
+              const my = e.clientY - rect.top
+              const dx = fromDisplay(mx - dragStart.current.mx)
+              const dy = fromDisplay(my - dragStart.current.my)
+              const s = dragStart.current.zone
+              const type = dragStart.current.type
+
+              let nx = s.x, ny = s.y, nw = s.w, nh = s.h
+              const MIN = 40
+
+              if (type === 'move') {
+                nx = clamp(s.x + dx, 0, imgW - s.w)
+                ny = clamp(s.y + dy, 0, imgH - s.h)
+              } else {
+                if (type.includes('w')) { nx = clamp(s.x + dx, 0, s.x + s.w - MIN); nw = s.w - (nx - s.x) }
+                if (type.includes('e')) { nw = clamp(s.w + dx, MIN, imgW - s.x) }
+                if (type.includes('n')) { ny = clamp(s.y + dy, 0, s.y + s.h - MIN); nh = s.h - (ny - s.y) }
+                if (type.includes('s')) { nh = clamp(s.h + dy, MIN, imgH - s.y) }
+              }
+              setZone({ x: nx, y: ny, w: nw, h: nh })
+            }
+            const handleUp = () => setDragging(null)
+            window.addEventListener('mousemove', handleMove)
+            window.addEventListener('mouseup', handleUp)
+            return () => { window.removeEventListener('mousemove', handleMove); window.removeEventListener('mouseup', handleUp) }
+          }, [dragging])
+
+          return (
+            <div className="azm-overlay" onClick={() => setArtZoneModal(null)}>
+              <div className="azm-modal" onClick={e => e.stopPropagation()}>
+                <div className="azm-header">
+                  <div>
+                    <div className="azm-title">Define Art Zone</div>
+                    <div className="azm-subtitle">Drag the rectangle to mark where artwork should be placed. The frame elements outside this zone will be preserved.</div>
+                  </div>
+                  <button className="azm-close" onClick={() => setArtZoneModal(null)}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                  </button>
+                </div>
+
+                <div className="azm-canvas-wrap">
+                  <div
+                    className="azm-canvas"
+                    ref={canvasRef}
+                    style={{ width: displayW, height: displayH, position: 'relative' }}
+                  >
+                    <img src={preview} style={{ width: displayW, height: displayH, display: 'block', borderRadius: 6 }} draggable={false} />
+                    {/* Dimmed overlay outside art zone */}
+                    <div className="azm-dim" style={{ top: 0, left: 0, right: 0, height: dz.y }} />
+                    <div className="azm-dim" style={{ top: dz.y + dz.h, left: 0, right: 0, bottom: 0 }} />
+                    <div className="azm-dim" style={{ top: dz.y, left: 0, width: dz.x, height: dz.h }} />
+                    <div className="azm-dim" style={{ top: dz.y, left: dz.x + dz.w, right: 0, height: dz.h }} />
+                    {/* Art zone rectangle */}
+                    <div
+                      className="azm-rect"
+                      style={{ left: dz.x, top: dz.y, width: dz.w, height: dz.h }}
+                      onMouseDown={(e) => handleMouseDown(e, 'move')}
+                    >
+                      <div className="azm-label">Art Zone</div>
+                      {/* Resize handles */}
+                      {['nw','ne','sw','se','n','s','e','w'].map(h => (
+                        <div key={h} className={`azm-handle azm-h-${h}`} onMouseDown={(e) => handleMouseDown(e, h)} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="azm-footer">
+                  <div className="azm-dims">
+                    <span className="azm-dim-label">Art zone:</span>
+                    <span className="azm-dim-val">{zone.w} × {zone.h}px</span>
+                    <span className="azm-dim-label">at</span>
+                    <span className="azm-dim-val">({zone.x}, {zone.y})</span>
+                    <span className="azm-dim-pct">{Math.round(zone.w/imgW*100)}% × {Math.round(zone.h/imgH*100)}%</span>
+                  </div>
+                  <div className="azm-actions">
+                    <button className="azm-btn-secondary" onClick={() => setArtZoneModal(null)}>Cancel</button>
+                    <button className="azm-btn-primary" onClick={() => submitFormat({ x: zone.x, y: zone.y, width: zone.w, height: zone.h })}>
+                      Confirm & Create Format
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        }
+        return <ArtZoneSelector />
+      })()}
 
       {/* ===== LIGHTBOX ===== */}
       {selectedResult && (() => {
@@ -1144,15 +1287,13 @@ export default function BannerStudio() {
           font-family: var(--sans); letter-spacing: 0.2px;
         }
         .variation-row {
-          display: flex; gap: 14px; overflow-x: auto;
-          padding-bottom: 4px; scroll-snap-type: x mandatory;
+          display: flex; flex-wrap: wrap; gap: 14px;
         }
         .variation-row.single { justify-content: flex-start; }
         .variation-row .result-card {
-          min-width: 230px; max-width: 300px; flex-shrink: 0;
-          scroll-snap-align: start;
+          min-width: 200px; max-width: 280px; flex: 1 1 200px;
         }
-        .variation-row.single .result-card { min-width: 280px; }
+        .variation-row.single .result-card { min-width: 260px; max-width: 320px; }
 
         .result-card {
           background: var(--surface); border: 1px solid var(--border);
@@ -1262,6 +1403,100 @@ export default function BannerStudio() {
           display: inline-flex; align-items: center; justify-content: center;
           font-size: 10px; font-weight: 700; flex-shrink: 0;
         }
+
+        /* ===== ART ZONE MODAL ===== */
+        .azm-overlay {
+          position: fixed; inset: 0; z-index: 300;
+          background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+          display: flex; align-items: center; justify-content: center;
+          animation: fadeIn 0.2s ease; padding: 24px;
+        }
+        .azm-modal {
+          background: var(--surface); border-radius: 16px;
+          box-shadow: 0 24px 80px rgba(0,0,0,0.25);
+          max-width: 900px; width: 100%; max-height: 90vh;
+          display: flex; flex-direction: column; overflow: hidden;
+          animation: slideDown 0.3s cubic-bezier(0.16,1,0.3,1);
+        }
+        .azm-header {
+          padding: 24px 28px 20px; display: flex; justify-content: space-between; align-items: flex-start;
+          border-bottom: 1px solid var(--border);
+        }
+        .azm-title {
+          font-family: var(--display); font-size: 20px; font-weight: 700;
+          color: var(--text); letter-spacing: -0.5px; margin-bottom: 6px;
+        }
+        .azm-subtitle {
+          font-size: 13px; color: var(--text-dim); line-height: 1.5; max-width: 500px;
+        }
+        .azm-close {
+          width: 32px; height: 32px; border-radius: 8px; border: none;
+          background: var(--surface-2); color: var(--text-dim); cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: all 0.15s; flex-shrink: 0;
+        }
+        .azm-close:hover { background: var(--surface-3); color: var(--text); }
+        .azm-canvas-wrap {
+          padding: 28px; display: flex; justify-content: center; overflow: auto;
+          background: var(--surface-2);
+        }
+        .azm-canvas {
+          position: relative; border-radius: 6px; overflow: hidden;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+        }
+        .azm-dim {
+          position: absolute; background: rgba(0,0,0,0.45);
+          pointer-events: none; transition: none;
+        }
+        .azm-rect {
+          position: absolute; border: 2px solid #fff;
+          box-shadow: 0 0 0 1px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,0.15);
+          cursor: move; z-index: 2;
+          background: rgba(255,255,255,0.04);
+        }
+        .azm-label {
+          position: absolute; top: 8px; left: 8px;
+          font-size: 10px; font-weight: 700; color: #fff;
+          background: rgba(0,0,0,0.6); padding: 3px 8px; border-radius: 4px;
+          font-family: var(--sans); letter-spacing: 0.5px; text-transform: uppercase;
+          pointer-events: none;
+        }
+        .azm-handle {
+          position: absolute; width: 10px; height: 10px;
+          background: #fff; border: 1.5px solid rgba(0,0,0,0.4);
+          border-radius: 2px; z-index: 3;
+        }
+        .azm-h-nw { top: -5px; left: -5px; cursor: nw-resize; }
+        .azm-h-ne { top: -5px; right: -5px; cursor: ne-resize; }
+        .azm-h-sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+        .azm-h-se { bottom: -5px; right: -5px; cursor: se-resize; }
+        .azm-h-n { top: -5px; left: 50%; margin-left: -5px; cursor: n-resize; }
+        .azm-h-s { bottom: -5px; left: 50%; margin-left: -5px; cursor: s-resize; }
+        .azm-h-e { top: 50%; margin-top: -5px; right: -5px; cursor: e-resize; }
+        .azm-h-w { top: 50%; margin-top: -5px; left: -5px; cursor: w-resize; }
+        .azm-footer {
+          padding: 18px 28px; border-top: 1px solid var(--border);
+          display: flex; justify-content: space-between; align-items: center;
+        }
+        .azm-dims {
+          display: flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 12px;
+        }
+        .azm-dim-label { color: var(--text-muted); }
+        .azm-dim-val { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+        .azm-dim-pct { color: var(--text-dim); background: var(--surface-2); padding: 3px 8px; border-radius: 4px; font-size: 11px; }
+        .azm-actions { display: flex; gap: 10px; }
+        .azm-btn-secondary {
+          padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border);
+          background: var(--surface); color: var(--text-dim); font-family: var(--sans);
+          font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+        }
+        .azm-btn-secondary:hover { border-color: var(--text-dim); color: var(--text); }
+        .azm-btn-primary {
+          padding: 10px 24px; border-radius: 8px; border: none;
+          background: var(--text); color: #fff; font-family: var(--sans);
+          font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .azm-btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
 
         /* ===== LIGHTBOX ===== */
         .lightbox {

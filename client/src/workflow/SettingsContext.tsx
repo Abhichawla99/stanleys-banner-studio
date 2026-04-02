@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 
 interface Settings {
   geminiApiKey: string
@@ -28,6 +28,21 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [openAiApiKey, setOpenAi] = useState(() => load('aiflow_openai'))
   const [klingApiKey, setKlingKey] = useState(() => load('aiflow_kling_key'))
   const [klingApiSecret, setKlingSecret] = useState(() => load('aiflow_kling_secret'))
+
+  // Auto-populate Gemini key from server .env if not set locally
+  useEffect(() => {
+    if (!geminiApiKey) {
+      fetch('http://localhost:3001/api/keys')
+        .then(r => r.json())
+        .then(data => {
+          if (data.geminiKey && !localStorage.getItem('aiflow_gemini')) {
+            setGemini(data.geminiKey)
+            localStorage.setItem('aiflow_gemini', data.geminiKey)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [])
 
   const setters: Record<keyof Settings, (v: string) => void> = {
     geminiApiKey: (v) => { setGemini(v); localStorage.setItem('aiflow_gemini', v) },

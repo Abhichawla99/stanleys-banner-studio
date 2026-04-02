@@ -20,9 +20,9 @@
   --green: #16a34a;
   --sidebar: 52px;
 
-  /* Canvas stays dark for visual editor convention */
-  --canvas-bg: #1a1a1e;
-  --canvas-dot: rgba(255,255,255,0.06);
+  /* Canvas background — light by default */
+  --canvas-bg: #f0f0f2;
+  --canvas-dot: rgba(0,0,0,0.1);
 
   background: var(--bg);
   color: var(--t1);
@@ -31,6 +31,29 @@
   width: 100vw;
   height: 100vh;
   -webkit-font-smoothing: antialiased;
+}
+
+/* ─── DARK THEME ─── */
+.wf-root .wf-dark {
+  --bg: #111114;
+  --s0: #18181b;
+  --s1: #1e1e22;
+  --s2: #252529;
+  --s3: #2e2e33;
+  --s4: #3a3a40;
+  --border: #2e2e33;
+  --border2: #3a3a40;
+  --t1: #e4e4e7;
+  --t2: #a1a1aa;
+  --t3: #71717a;
+  --accent: #e4e4e7;
+  --accent-bg: rgba(228,228,231,0.08);
+  --accent-glow: rgba(228,228,231,0.15);
+  --red: #f87171;
+  --green: #4ade80;
+
+  --canvas-bg: #0e0e11;
+  --canvas-dot: rgba(255,255,255,0.07);
 }
 
 .wf-root * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -256,56 +279,87 @@
   border: 1px solid var(--border);
   border-left: 3px solid var(--border);
   border-radius: 12px; overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  transition: box-shadow 0.12s, border-color 0.12s;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
+  transition: box-shadow 0.2s cubic-bezier(0.4,0,0.2,1), border-color 0.2s, transform 0.2s cubic-bezier(0.4,0,0.2,1);
 }
-.wf-root .node-wrapper:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+.wf-root .node-wrapper:hover {
+  box-shadow: 0 8px 28px rgba(0,0,0,0.14), 0 2px 6px rgba(0,0,0,0.06);
+  transform: translateY(-1px);
+}
 .wf-root .node-wrapper.selected {
   border-color: var(--accent) !important;
   border-left-color: var(--accent) !important;
-  box-shadow: 0 0 0 2px var(--accent-glow), 0 4px 16px rgba(0,0,0,0.1);
+  box-shadow: 0 0 0 2px var(--accent-glow), 0 8px 28px rgba(0,0,0,0.14);
 }
 
-/* Node accent left bars — keep functional colors */
+/* Node accent left bars — colour by category
+   Brand & Campaign = rose/coral
+   Triggers/Input   = violet/purple
+   AI & Text        = indigo/blue
+   Image Gen        = amber/orange
+   Video Gen        = emerald/teal
+   Vision           = cyan
+   Creative Tools   = fuchsia/pink
+   Output           = lime/green
+   Utilities        = slate/neutral
+*/
+/* Brand & Campaign — rose family */
+.wf-root .node-wrapper[data-node-type="brandKit"] { border-left-color: #f43f5e; }
+.wf-root .node-wrapper[data-node-type="campaignContext"] { border-left-color: #fb7185; }
+
+/* Triggers — violet family */
 .wf-root .node-wrapper[data-node-type="textInput"] { border-left-color: #8b5cf6; }
-.wf-root .node-wrapper[data-node-type="webhook"] { border-left-color: #d946ef; }
-.wf-root .node-wrapper[data-node-type="schedule"] { border-left-color: #eab308; }
-.wf-root .node-wrapper[data-node-type="promptBuilder"] { border-left-color: #22c55e; }
-.wf-root .node-wrapper[data-node-type="filter"] { border-left-color: #f97316; }
+.wf-root .node-wrapper[data-node-type="webhook"] { border-left-color: #a78bfa; }
+.wf-root .node-wrapper[data-node-type="schedule"] { border-left-color: #c4b5fd; }
+.wf-root .node-wrapper[data-node-type="fileUpload"] { border-left-color: #7c3aed; }
+
+/* AI & Text — indigo/blue family */
+.wf-root .node-wrapper[data-node-type="llm"] { border-left-color: #6366f1; }
+.wf-root .node-wrapper[data-node-type="promptEnhancer"] { border-left-color: #818cf8; }
+.wf-root .node-wrapper[data-node-type="promptBuilder"] { border-left-color: #a5b4fc; }
+.wf-root .node-wrapper[data-node-type="textSplit"] { border-left-color: #3b82f6; }
+.wf-root .node-wrapper[data-node-type="promptConcatenator"] { border-left-color: #60a5fa; }
+.wf-root .node-wrapper[data-node-type="iterator"] { border-left-color: #93c5fd; }
+.wf-root .node-wrapper[data-node-type="filter"] { border-left-color: #2563eb; }
 .wf-root .node-wrapper[data-node-type="httpRequest"] { border-left-color: #0ea5e9; }
+.wf-root .node-wrapper[data-node-type="storyboard"] { border-left-color: #4f46e5; }
+
+/* Image Generation — amber/orange family */
 .wf-root .node-wrapper[data-node-type="nanoBanana"] { border-left-color: #f59e0b; }
+.wf-root .node-wrapper[data-node-type="imagen4"] { border-left-color: #fbbf24; }
+.wf-root .node-wrapper[data-node-type="gptImage"] { border-left-color: #f97316; }
+.wf-root .node-wrapper[data-node-type="flux"] { border-left-color: #fb923c; }
+.wf-root .node-wrapper[data-node-type="imageTransform"] { border-left-color: #d97706; }
+
+/* Video Generation — emerald/teal family */
 .wf-root .node-wrapper[data-node-type="kling"] { border-left-color: #10b981; }
-.wf-root .node-wrapper[data-node-type="veo"] { border-left-color: #3b82f6; }
-.wf-root .node-wrapper[data-node-type="imageDisplay"] { border-left-color: #f97316; }
-.wf-root .node-wrapper[data-node-type="videoDisplay"] { border-left-color: #84cc16; }
-.wf-root .node-wrapper[data-node-type="llm"] { border-left-color: #a855f7; }
-.wf-root .node-wrapper[data-node-type="flux"] { border-left-color: #f59e0b; }
-.wf-root .node-wrapper[data-node-type="promptEnhancer"] { border-left-color: #ec4899; }
+.wf-root .node-wrapper[data-node-type="veo"] { border-left-color: #34d399; }
+
+/* Vision & Analysis — cyan family */
 .wf-root .node-wrapper[data-node-type="imageDescriber"] { border-left-color: #06b6d4; }
+.wf-root .node-wrapper[data-node-type="compare"] { border-left-color: #22d3ee; }
+
+/* Creative Tools — fuchsia/pink family */
+.wf-root .node-wrapper[data-node-type="batchVariants"] { border-left-color: #d946ef; }
+.wf-root .node-wrapper[data-node-type="platformPresets"] { border-left-color: #e879f9; }
+.wf-root .node-wrapper[data-node-type="approvalGate"] { border-left-color: #c026d3; }
+
+/* Output — lime/green family */
+.wf-root .node-wrapper[data-node-type="imageDisplay"] { border-left-color: #84cc16; }
+.wf-root .node-wrapper[data-node-type="videoDisplay"] { border-left-color: #a3e635; }
+.wf-root .node-wrapper[data-node-type="webhookOutput"] { border-left-color: #65a30d; }
+.wf-root .node-wrapper[data-node-type="exportPack"] { border-left-color: #4ade80; }
+
+/* Utilities — slate/neutral */
 .wf-root .node-wrapper[data-node-type="seed"] { border-left-color: #94a3b8; }
-.wf-root .node-wrapper[data-node-type="compare"] { border-left-color: #8b5cf6; }
-.wf-root .node-wrapper[data-node-type="fileUpload"] { border-left-color: #d946ef; }
-.wf-root .node-wrapper[data-node-type="textSplit"] { border-left-color: #f97316; }
-.wf-root .node-wrapper[data-node-type="promptConcatenator"] { border-left-color: #84cc16; }
-.wf-root .node-wrapper[data-node-type="gptImage"] { border-left-color: #06b6d4; }
-.wf-root .node-wrapper[data-node-type="imagen4"] { border-left-color: #22c55e; }
-.wf-root .node-wrapper[data-node-type="imageTransform"] { border-left-color: #f97316; }
-.wf-root .node-wrapper[data-node-type="iterator"] { border-left-color: #0ea5e9; }
-.wf-root .node-wrapper[data-node-type="note"] { border-radius: 10px; }
-.wf-root .node-wrapper[data-node-type="brandKit"] { border-left-color: #e11d48; }
-.wf-root .node-wrapper[data-node-type="campaignContext"] { border-left-color: #f97316; }
-.wf-root .node-wrapper[data-node-type="batchVariants"] { border-left-color: #8b5cf6; }
-.wf-root .node-wrapper[data-node-type="platformPresets"] { border-left-color: #0891b2; }
-.wf-root .node-wrapper[data-node-type="approvalGate"] { border-left-color: #d946ef; }
-.wf-root .node-wrapper[data-node-type="exportPack"] { border-left-color: #84cc16; }
-.wf-root .node-wrapper[data-node-type="storyboard"] { border-left-color: #e879f9; }
-.wf-root .node-wrapper[data-node-type="webhookOutput"] { border-left-color: #f472b6; }
+.wf-root .node-wrapper[data-node-type="note"] { border-left-color: #cbd5e1; border-radius: 10px; }
 
 .wf-root .node-header {
   display: flex; align-items: center; gap: 7px;
   padding: 10px 12px; font-size: 11px; font-weight: 600;
   border-bottom: 1px solid var(--border);
   background: var(--s2) !important;
+  letter-spacing: 0.01em;
 }
 .wf-root .node-body { padding: 12px; display: flex; flex-direction: column; gap: 9px; }
 .wf-root .field-label {
@@ -326,11 +380,17 @@
   width: 100%; background: var(--accent); color: white;
   border: none; border-radius: 8px; padding: 8px 14px;
   font-size: 12px; font-weight: 600; cursor: pointer;
-  transition: opacity 0.12s;
+  transition: all 0.15s cubic-bezier(0.4,0,0.2,1);
   display: flex; align-items: center; justify-content: center; gap: 6px;
   font-family: inherit;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
-.wf-root .btn-run:hover:not(:disabled) { opacity: 0.85; }
+.wf-root .btn-run:hover:not(:disabled) {
+  opacity: 0.9;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  transform: translateY(-0.5px);
+}
+.wf-root .btn-run:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
 .wf-root .btn-run:disabled { opacity: 0.3; cursor: not-allowed; }
 
 .wf-root .status-badge {
@@ -359,6 +419,50 @@
 
 .wf-root .poll-indicator { font-size: 11px; color: var(--accent); display: flex; align-items: center; gap: 5px; }
 
+/* ─── IMAGE HISTORY CAROUSEL ─── */
+.wf-root .gen-carousel-bar {
+  display: flex; align-items: center; gap: 2px;
+  padding: 5px 8px;
+  background: var(--s2);
+  border-bottom: 1px solid var(--border);
+}
+.wf-root .gen-carousel-btn {
+  width: 24px; height: 24px; border-radius: 5px;
+  border: none; background: transparent;
+  color: var(--t3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s;
+}
+.wf-root .gen-carousel-btn:hover:not(:disabled) { background: var(--s3); color: var(--t1); }
+.wf-root .gen-carousel-btn:disabled { opacity: 0.25; cursor: default; }
+.wf-root .gen-carousel-count {
+  font-size: 11px; font-weight: 600; color: var(--t2);
+  min-width: 36px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.wf-root .gen-history-strip {
+  display: flex; gap: 4px; padding: 6px 8px;
+  overflow-x: auto; background: var(--s2);
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 11px 11px;
+}
+.wf-root .gen-history-thumb {
+  width: 40px; height: 40px; border-radius: 5px;
+  border: 2px solid transparent; background: transparent;
+  cursor: pointer; padding: 0; flex-shrink: 0;
+  transition: border-color 0.12s, opacity 0.12s;
+  overflow: hidden; opacity: 0.6;
+}
+.wf-root .gen-history-thumb:hover { opacity: 0.9; }
+.wf-root .gen-history-thumb.active {
+  border-color: var(--accent); opacity: 1;
+  box-shadow: 0 0 0 1px var(--accent-glow);
+}
+.wf-root .gen-history-thumb img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+
 /* ─── CHECKERBOARD (transparent area indicator) ─── */
 .wf-root .checker-bg {
   background-color: #f0f0f0;
@@ -374,15 +478,112 @@
 /* ─── REACT FLOW — keep canvas dark ─── */
 .wf-root .react-flow__background { background: var(--canvas-bg) !important; }
 .wf-root .react-flow__controls { display: none !important; }
-.wf-root .react-flow__edge-path { stroke: rgba(255,255,255,0.15); stroke-width: 1.5; }
-.react-flow__edge.selected .react-flow__edge-path,
-.wf-root .react-flow__edge:hover .react-flow__edge-path { stroke: rgba(255,255,255,0.35); }
-.wf-root .react-flow__connectionline { stroke: var(--accent); stroke-width: 1.5; }
-.wf-root .react-flow__handle {
-  width: 8px; height: 8px; background: #555;
-  border: 2px solid var(--s1); transition: all 0.12s;
+
+/* ─── CUSTOM EDGES / WIRES (light mode) ─── */
+.wf-root .edge-wire {
+  stroke: rgba(0,0,0,0.2);
+  stroke-width: 2;
+  transition: stroke 0.2s, stroke-width 0.2s;
 }
-.wf-root .react-flow__handle:hover { background: var(--accent); width: 10px; height: 10px; border-color: var(--s1); }
+.wf-root .edge-glow {
+  stroke: rgba(0,0,0,0.04);
+  stroke-width: 8;
+  filter: blur(3px);
+  transition: stroke 0.2s;
+}
+.wf-root .react-flow__edge:hover .edge-wire {
+  stroke: rgba(0,0,0,0.45);
+  stroke-width: 2.5;
+}
+.wf-root .react-flow__edge:hover .edge-glow {
+  stroke: rgba(0,0,0,0.08);
+}
+.wf-root .edge-wire.edge-selected {
+  stroke: rgba(0,0,0,0.55);
+  stroke-width: 2.5;
+}
+.wf-root .edge-glow.edge-selected {
+  stroke: rgba(0,0,0,0.12);
+}
+
+/* Animated flow dots */
+.wf-root .edge-dot {
+  fill: rgba(0,0,0,0.45);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.wf-root .react-flow__edge:hover .edge-dot {
+  opacity: 1;
+}
+.wf-root .edge-dot-delayed {
+  fill: rgba(0,0,0,0.25);
+}
+
+/* Connection line while dragging */
+.wf-root .react-flow__connectionline {
+  stroke: rgba(0,0,0,0.4);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  animation: dash-flow 0.4s linear infinite;
+}
+@keyframes dash-flow { to { stroke-dashoffset: -10; } }
+
+/* ─── HANDLES (light mode) ─── */
+.wf-root .react-flow__handle {
+  width: 14px; height: 14px;
+  background: #c0c0c0;
+  border: 2.5px solid #e0e0e0;
+  border-radius: 50%;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: crosshair;
+}
+.wf-root .react-flow__handle:hover,
+.wf-root .react-flow__handle.connecting {
+  width: 18px; height: 18px;
+  background: #555;
+  border-color: rgba(59,130,246,0.6);
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15), 0 0 12px rgba(59,130,246,0.25);
+}
+.wf-root .react-flow__handle-right {
+  background: #aaa;
+  border-color: rgba(0,0,0,0.12);
+}
+.wf-root .react-flow__handle-left {
+  background: #b0b0b0;
+  border-color: rgba(0,0,0,0.1);
+}
+.wf-root .react-flow__handle-left:hover {
+  background: #555;
+  border-color: rgba(59,130,246,0.6);
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15), 0 0 12px rgba(59,130,246,0.25);
+}
+
+/* ─── EDGE DELETE BUTTON ─── */
+.edge-delete-btn {
+  cursor: pointer;
+  pointer-events: all;
+}
+.edge-delete-btn circle {
+  fill: #fff;
+  stroke: #ccc;
+  stroke-width: 1.5;
+  transition: all 0.15s ease;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.12));
+}
+.edge-delete-btn path {
+  stroke: #999;
+  fill: none;
+  transition: stroke 0.15s ease;
+}
+.edge-delete-btn:hover circle {
+  fill: #fee2e2;
+  stroke: #f87171;
+}
+.edge-delete-btn:hover path {
+  stroke: #ef4444;
+}
+
+/* ─── MINIMAP ─── */
 .wf-root .react-flow__minimap {
   background: var(--s1) !important;
   border: 1px solid var(--border) !important;
@@ -390,3 +591,173 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
 }
 .wf-root .react-flow__minimap-mask { fill: rgba(0,0,0,0.15) !important; }
+
+/* ─── DARK THEME OVERRIDES (hardcoded colors) ─── */
+.wf-root .wf-dark .checker-bg {
+  background-color: #1a1a1e;
+  background-image:
+    linear-gradient(45deg, #222226 25%, transparent 25%),
+    linear-gradient(-45deg, #222226 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #222226 75%),
+    linear-gradient(-45deg, transparent 75%, #222226 75%);
+}
+
+.wf-root .wf-dark .spinner {
+  border-color: rgba(255,255,255,0.1);
+  border-top-color: currentColor;
+}
+
+.wf-root .wf-dark .icon-sidebar {
+  background: var(--s0);
+  border-right-color: var(--border);
+}
+
+.wf-root .wf-dark .node-palette {
+  background: var(--s1);
+  border-right-color: var(--border);
+}
+
+.wf-root .wf-dark .settings-panel {
+  background: var(--s1);
+  border-color: var(--border);
+}
+
+.wf-root .wf-dark .bottom-toolbar {
+  background: var(--s1);
+  border-color: var(--border);
+}
+
+.wf-root .wf-dark .top-btn {
+  background: var(--s1);
+  border-color: var(--border);
+  color: var(--t2);
+}
+.wf-root .wf-dark .top-btn:hover {
+  background: var(--s3);
+  color: var(--t1);
+}
+
+.wf-root .wf-dark .status-done { background: rgba(74,222,128,0.1); }
+.wf-root .wf-dark .status-error { background: rgba(248,113,113,0.1); }
+
+/* Dark mode edges */
+.wf-root .wf-dark .edge-wire { stroke: rgba(255,255,255,0.18); }
+.wf-root .wf-dark .edge-glow { stroke: rgba(255,255,255,0.04); }
+.wf-root .wf-dark .react-flow__edge:hover .edge-wire { stroke: rgba(255,255,255,0.45); }
+.wf-root .wf-dark .react-flow__edge:hover .edge-glow { stroke: rgba(255,255,255,0.08); }
+.wf-root .wf-dark .edge-wire.edge-selected { stroke: rgba(255,255,255,0.55); }
+.wf-root .wf-dark .edge-glow.edge-selected { stroke: rgba(255,255,255,0.12); }
+.wf-root .wf-dark .edge-dot { fill: rgba(255,255,255,0.5); }
+.wf-root .wf-dark .edge-dot-delayed { fill: rgba(255,255,255,0.3); }
+.wf-root .wf-dark .react-flow__connectionline { stroke: rgba(255,255,255,0.5); }
+
+/* Dark mode handles */
+.wf-root .wf-dark .react-flow__handle { background: #555; border-color: #777; }
+.wf-root .wf-dark .react-flow__handle-right { background: #666; border-color: rgba(255,255,255,0.2); }
+.wf-root .wf-dark .react-flow__handle-left { background: #4a4a4a; border-color: rgba(255,255,255,0.15); }
+.wf-root .wf-dark .react-flow__handle:hover,
+.wf-root .wf-dark .react-flow__handle.connecting {
+  background: #fff; border-color: rgba(120,200,255,0.7);
+  box-shadow: 0 0 0 3px rgba(120,200,255,0.2), 0 0 12px rgba(120,200,255,0.35);
+}
+.wf-root .wf-dark .react-flow__handle-left:hover {
+  background: #fff; border-color: rgba(120,200,255,0.7);
+  box-shadow: 0 0 0 3px rgba(120,200,255,0.2), 0 0 12px rgba(120,200,255,0.35);
+}
+
+/* Dark mode edge delete button */
+.wf-root .wf-dark .edge-delete-btn circle {
+  fill: #2a2a2e;
+  stroke: #555;
+}
+.wf-root .wf-dark .edge-delete-btn path {
+  stroke: #888;
+}
+.wf-root .wf-dark .edge-delete-btn:hover circle {
+  fill: #3b1515;
+  stroke: #f87171;
+}
+.wf-root .wf-dark .edge-delete-btn:hover path {
+  stroke: #f87171;
+}
+
+/* ─── CANVAS CONTEXT MENU ─── */
+.canvas-ctx-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 200px;
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+  animation: ctx-fade-in 0.12s ease-out;
+}
+@keyframes ctx-fade-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.ctx-menu-header {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #999;
+  padding: 4px 8px 6px;
+}
+.ctx-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #333;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+.ctx-menu-item:hover {
+  background: #f3f4f6;
+}
+.ctx-menu-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: rgba(0,0,0,0.04);
+  flex-shrink: 0;
+}
+.ctx-menu-divider {
+  height: 1px;
+  background: #e5e5e5;
+  margin: 4px 6px;
+}
+
+/* Dark mode context menu */
+.wf-root .wf-dark .canvas-ctx-menu {
+  background: #1e1e22;
+  border-color: #333;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2);
+}
+.wf-root .wf-dark .ctx-menu-header {
+  color: #666;
+}
+.wf-root .wf-dark .ctx-menu-item {
+  color: #ddd;
+}
+.wf-root .wf-dark .ctx-menu-item:hover {
+  background: rgba(255,255,255,0.06);
+}
+.wf-root .wf-dark .ctx-menu-icon {
+  background: rgba(255,255,255,0.06);
+}
+.wf-root .wf-dark .ctx-menu-divider {
+  background: #333;
+}
+

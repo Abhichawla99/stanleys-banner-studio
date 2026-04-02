@@ -81,7 +81,7 @@ export function PlatformPresetsNode({ id, selected }: NodeProps) {
           aspectRatio: platform.aspectRatio,
           provider: provider as 'gemini' | 'fal',
           apiKey,
-          referenceImages: [imageUrl],
+          referenceImages: [{ name: 'source', url: imageUrl }],
         })
         trackApiCall('nanoBanana')
         newResults.push({ platformId, imageUrl: result.imageUrl })

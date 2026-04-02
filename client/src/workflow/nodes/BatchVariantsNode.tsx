@@ -76,7 +76,7 @@ export function BatchVariantsNode({ id, selected }: NodeProps) {
           aspectRatio: aspectRatio as any,
           provider: provider as 'gemini' | 'fal',
           apiKey,
-          referenceImages: referenceImage ? [referenceImage] : undefined,
+          referenceImages: referenceImage ? [{ name: 'source', url: referenceImage }] : undefined,
         })
         results.push(result.imageUrl)
         trackApiCall('nanoBanana')

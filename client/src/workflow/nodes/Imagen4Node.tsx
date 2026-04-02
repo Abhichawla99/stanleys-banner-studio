@@ -8,6 +8,7 @@ import { NodeMenu } from '../components/NodeMenu'
 import { registerNodeRunner, unregisterNodeRunner } from '../nodeRunner'
 import { getNodeInputs } from '../utils/nodeInputs'
 import { trackApiCall } from '../apiCallTracker'
+import { ImageHistory, pushHistory, type HistoryItem } from '../components/ImageHistory'
 
 export function Imagen4Node({ id, selected }: NodeProps) {
   const { nodes, updateNodeData } = useNodeStore()
@@ -23,8 +24,9 @@ export function Imagen4Node({ id, selected }: NodeProps) {
   const negPrompt = (data.negPrompt as string) ?? ''
   const aspectRatio = (data.aspectRatio as string) ?? '1:1'
   const imageUrl = (data.imageUrl as string) ?? ''
+  const history: HistoryItem[] = (data.history as HistoryItem[]) ?? []
 
-  function getInputs(): { prompt: string; referenceImages: string[] } {
+  function getInputs() {
     return getNodeInputs(edges, nodes, id, (data.prompt as string) ?? '')
   }
 
@@ -35,7 +37,6 @@ export function Imagen4Node({ id, selected }: NodeProps) {
 
     setStatus('loading')
     setError('')
-    updateNodeData(id, { imageUrl: '' })
 
     try {
       const result = await generateImagen4({
@@ -43,9 +44,9 @@ export function Imagen4Node({ id, selected }: NodeProps) {
         negativePrompt: negPrompt || undefined,
         aspectRatio: aspectRatio as any,
         apiKey: settings.geminiApiKey,
-        referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
+        referenceImages: referenceImages.length > 0 ? referenceImages.map(r => r.url) : undefined,
       })
-      updateNodeData(id, { imageUrl: result.imageUrl })
+      updateNodeData(id, pushHistory(history, result.imageUrl, prompt))
       trackApiCall('imagen4')
       setStatus('done')
     } catch (e: any) {
@@ -110,10 +111,10 @@ export function Imagen4Node({ id, selected }: NodeProps) {
               {connectedRefs.length} Reference Image{connectedRefs.length > 1 ? 's' : ''} (Gemini remix mode)
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {connectedRefs.map((src, i) => (
+              {connectedRefs.map((ref, i) => (
                 <img
                   key={i}
-                  src={src}
+                  src={ref.url}
                   alt={`ref ${i + 1}`}
                   style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--border2)' }}
                 />
@@ -132,20 +133,12 @@ export function Imagen4Node({ id, selected }: NodeProps) {
           {status === 'loading' ? <><div className="spinner" /> Generating...</> : <><Sparkles size={13} /> Generate with Imagen 4</>}
         </button>
 
-        {imageUrl && (
-          <div style={{ margin: '0 -12px -12px', borderTop: '1px solid var(--border)' }}>
-            <div className="checker-bg" style={{ borderRadius: '0 0 11px 11px', overflow: 'hidden' }}>
-              <img src={imageUrl} alt="Generated" style={{ width: '100%', display: 'block', maxHeight: 320, objectFit: 'contain' }} />
-            </div>
-            <a
-              href={imageUrl}
-              download="imagen4.png"
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '7px 12px', fontSize: 11, color: 'var(--t3)', textDecoration: 'none', borderTop: '1px solid var(--border)' }}
-            >
-              ↓ Save Image
-            </a>
-          </div>
-        )}
+        <ImageHistory
+          imageUrl={imageUrl}
+          history={history}
+          onSelectImage={url => updateNodeData(id, { imageUrl: url })}
+          downloadName="imagen4"
+        />
       </div>
       <Handle type="source" position={Position.Right} style={{ top: '50%' }} />
     </div>

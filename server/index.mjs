@@ -505,9 +505,33 @@ app.post("/api/formats/new", upload.single("frame"), async (req, res) => {
       pngBuffer = await sharp(req.file.path).ensureAlpha().png().toBuffer();
     }
 
-    // Try transparent region detection first, fall back to AI
-    let artZone = await detectTransparentRegion(pngBuffer, width, height);
-    let method = "transparency";
+    // Check if the client sent an explicit art zone (from the visual selector)
+    let artZone = null;
+    let method = "manual";
+
+    if (req.body.artZone) {
+      try {
+        const az = JSON.parse(req.body.artZone);
+        artZone = { x: Math.round(az.x), y: Math.round(az.y), width: Math.round(az.width), height: Math.round(az.height) };
+        console.log(`[NEW FORMAT] Using manual art zone: ${artZone.width}×${artZone.height} at (${artZone.x}, ${artZone.y})`);
+        // Punch transparent hole for the art zone
+        const punch = await sharp({
+          create: { width: artZone.width, height: artZone.height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
+        }).png().toBuffer();
+        pngBuffer = await sharp(pngBuffer)
+          .composite([{ input: punch, left: artZone.x, top: artZone.y, blend: "dest-out" }])
+          .png().toBuffer();
+      } catch (e) {
+        console.warn("[NEW FORMAT] Failed to parse artZone, falling back to auto-detection:", e.message);
+        artZone = null;
+      }
+    }
+
+    // Auto-detect if no manual zone provided
+    if (!artZone) {
+      artZone = await detectTransparentRegion(pngBuffer, width, height);
+      method = "transparency";
+    }
 
     if (!artZone) {
       // Save temp file for AI detection
@@ -541,6 +565,18 @@ app.post("/api/formats/new", upload.single("frame"), async (req, res) => {
       console.log(`[NEW FORMAT] Frame analysis for ${label}:`, frameAnalysis.instructions?.slice(0, 120));
     }
 
+    // Infer which side has the most frame coverage for edge clearance hints
+    const _topPct = artZone.y / height;
+    const _bottomPct = (height - artZone.y - artZone.height) / height;
+    const _leftPct = artZone.x / width;
+    const _rightPct = (width - artZone.x - artZone.width) / width;
+    const _maxEdge = Math.max(_topPct, _bottomPct, _leftPct, _rightPct);
+    const inferredLogo = _maxEdge < 0.08 ? "none"
+      : _rightPct === _maxEdge ? "right"
+      : _leftPct === _maxEdge ? "top-left"
+      : _topPct === _maxEdge ? "top-center"
+      : "none";
+
     // Build the config
     const config = {
       id,
@@ -549,14 +585,26 @@ app.post("/api/formats/new", upload.single("frame"), async (req, res) => {
       height,
       ratio: overallRatio,
       category: "Custom",
-      logo: "none",
+      logo: inferredLogo,
       artZone: {
         xPct: artZone.x / width,
         yPct: artZone.y / height,
         wPct: artZone.width / width,
         hPct: artZone.height / height,
       },
-      layoutHint: `Art zone is at (${artZone.x}, ${artZone.y}), size ${artZone.width}×${artZone.height}. The remaining area around the art zone contains the banner frame elements (logos, text bars, branding). Place all important content (faces, titles, characters) inside the art zone. Fill the areas that will be covered by the frame with expendable background only.`,
+      layoutHint: (() => {
+        const topPct = Math.round((artZone.y / height) * 100);
+        const bottomPct = Math.round(((height - artZone.y - artZone.height) / height) * 100);
+        const leftPct = Math.round((artZone.x / width) * 100);
+        const rightPct = Math.round(((width - artZone.x - artZone.width) / width) * 100);
+        const parts = [];
+        if (topPct > 3) parts.push(`the top ~${topPct}%`);
+        if (bottomPct > 3) parts.push(`the bottom ~${bottomPct}%`);
+        if (leftPct > 3) parts.push(`the left ~${leftPct}%`);
+        if (rightPct > 3) parts.push(`the right ~${rightPct}%`);
+        const covered = parts.length ? parts.join(', ') : 'the outermost edges';
+        return `After compositing, a decorative frame will cover ${covered} of the canvas. These areas will be hidden under the frame overlay, so fill them with expendable background only (sky, atmosphere, texture — no faces, no text, no important content). Keep ALL important content (hero characters, title text, key visual elements) well inside the visible centre of the canvas.`;
+      })(),
       _artZone: artZone,
       _customTemplate: true,
       _userCreated: true,
@@ -856,11 +904,29 @@ These are packaging — strip them completely. Output ONLY the show/movie artwor
         ? `\n\nTEMPLATE-SPECIFIC COMPOSITION NOTES:\n${frameInstructions}\nFollow these composition guidelines — but remember: NEVER draw any lines, boxes, or annotations on the artwork.`
         : '';
 
+      // For custom templates with asymmetric frames, compute per-edge coverage
+      const topCover = Math.round((az.y / config.height) * 100);
+      const bottomCover = Math.round(((config.height - az.y - az.height) / config.height) * 100);
+      const leftCover = Math.round((az.x / config.width) * 100);
+      const rightCover = Math.round(((config.width - az.x - az.width) / config.width) * 100);
       const marginPct = Math.round((margin / Math.min(az.width, az.height)) * 100);
+
+      // Build edge-specific coverage description
+      const edgeParts = [];
+      if (topCover > 3) edgeParts.push(`TOP ~${topCover}%`);
+      if (bottomCover > 3) edgeParts.push(`BOTTOM ~${bottomCover}%`);
+      if (leftCover > 3) edgeParts.push(`LEFT ~${leftCover}%`);
+      if (rightCover > 3) edgeParts.push(`RIGHT ~${rightCover}%`);
+      const edgeDesc = edgeParts.length
+        ? `These specific edges will be covered by the frame overlay after compositing: ${edgeParts.join(', ')}.`
+        : `The outermost ~${marginPct}% on every side will be partially covered by the frame edge.`;
+
       const computedLayout = `Your generated canvas is the visible art window.
-The banner frame border runs flush along ALL FOUR EDGES of your canvas — roughly the outermost ${marginPct}% on every side will be partially covered by the frame edge.
-SAFE ZONE: Keep ALL important content (title, faces, characters) inset from every edge by at least ${marginPct}% of the canvas size.
-Outside the safe zone: background only — sky, atmosphere, texture. No text, no faces, no characters.
+${edgeDesc}
+SAFE ZONE: All important content (title text, faces, characters, key visual elements) MUST be placed well inside the canvas — away from any covered edges. Think of it as padding: push everything important toward the centre.
+COVERED EDGES = expendable background ONLY (sky, atmosphere, gradients, texture). No faces, no text, no characters in those zones.
+
+CRITICAL: Your output is FINISHED ART. Do NOT draw any lines, rectangles, borders, safe zone markers, or boundary indicators. The safe zone is an invisible guide — never render it visually.
 
 DESIGNER COMPOSITION GUIDE for this format:
 ${compositionHint}${frameBlock}`;
@@ -1281,6 +1347,14 @@ app.delete('/workflows/:id', (req, res) => {
   db.workflows.splice(idx, 1);
   saveWorkflowDb(db);
   res.json({ ok: true });
+});
+
+// Expose which API keys are available from server .env (for workflow auto-config)
+app.get('/api/keys', (req, res) => {
+  res.json({
+    gemini: !!process.env.GEMINI_API_KEY,
+    geminiKey: process.env.GEMINI_API_KEY || '',
+  });
 });
 
 // ============================================================

@@ -8,6 +8,7 @@ import { NodeMenu } from '../components/NodeMenu'
 import { registerNodeRunner, unregisterNodeRunner } from '../nodeRunner'
 import { getNodeInputs } from '../utils/nodeInputs'
 import { trackApiCall } from '../apiCallTracker'
+import { ImageHistory, pushHistory, type HistoryItem } from '../components/ImageHistory'
 
 const FAL_MODELS = [
   { id: 'fal-ai/flux-pro/v1.1-ultra', label: 'Flux Pro 1.1 Ultra', color: '#f59e0b' },
@@ -42,9 +43,10 @@ export function FluxNode({ id, selected }: NodeProps) {
   const seed = (data.seed as number | undefined)
   const negPrompt = (data.negPrompt as string) ?? ''
   const imageUrl = (data.imageUrl as string) ?? ''
+  const history: HistoryItem[] = (data.history as HistoryItem[]) ?? []
   const currentModel = FAL_MODELS.find(m => m.id === modelId) ?? FAL_MODELS[0]
 
-  function getInputs(): { prompt: string; referenceImages: string[] } {
+  function getInputs() {
     return getNodeInputs(edges, nodes, id, (data.prompt as string) ?? '')
   }
 
@@ -63,9 +65,9 @@ export function FluxNode({ id, selected }: NodeProps) {
         imageSize,
         seed,
         apiKey: settings.falApiKey,
-        referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
+        referenceImages: referenceImages.length > 0 ? referenceImages.map(r => r.url) : undefined,
       })
-      updateNodeData(id, { imageUrl: result.imageUrl })
+      updateNodeData(id, pushHistory(history, result.imageUrl, prompt))
       trackApiCall('flux')
       setStatus('done')
     } catch (e: any) {
@@ -95,7 +97,6 @@ export function FluxNode({ id, selected }: NodeProps) {
         <NodeMenu id={id} />
       </div>
       <div className="node-body">
-        {/* Model selector */}
         <div>
           <div className="field-label">Model</div>
           <select value={modelId} onChange={e => updateNodeData(id, { modelId: e.target.value })}>
@@ -105,7 +106,6 @@ export function FluxNode({ id, selected }: NodeProps) {
           </select>
         </div>
 
-        {/* Prompt */}
         <div>
           <div className="field-label">Prompt (or connect Text / Image nodes)</div>
           <textarea
@@ -116,13 +116,11 @@ export function FluxNode({ id, selected }: NodeProps) {
           />
         </div>
 
-        {/* Negative prompt */}
         <div>
           <div className="field-label">Negative Prompt</div>
           <textarea rows={1} value={negPrompt} onChange={e => updateNodeData(id, { negPrompt: e.target.value })} placeholder="blurry, low quality..." />
         </div>
 
-        {/* Size + Seed */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <div>
             <div className="field-label">Image Size</div>
@@ -156,10 +154,10 @@ export function FluxNode({ id, selected }: NodeProps) {
               {connectedRefs.length} Reference Image{connectedRefs.length > 1 ? 's' : ''} · converted to base64 server-side
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {connectedRefs.map((src, i) => (
+              {connectedRefs.map((ref, i) => (
                 <img
                   key={i}
-                  src={src}
+                  src={ref.url}
                   alt={`ref ${i + 1}`}
                   style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 5, border: '1px solid var(--border2)' }}
                 />
@@ -174,20 +172,12 @@ export function FluxNode({ id, selected }: NodeProps) {
           {status === 'loading' ? <><div className="spinner" /> Generating...</> : <><Zap size={13} /> Generate</>}
         </button>
 
-        {imageUrl && (
-          <div style={{ margin: '0 -12px -12px', borderTop: '1px solid var(--border)' }}>
-            <div className="checker-bg" style={{ borderRadius: '0 0 11px 11px', overflow: 'hidden' }}>
-              <img src={imageUrl} alt="Generated" style={{ width: '100%', display: 'block', maxHeight: 320, objectFit: 'contain' }} />
-            </div>
-            <a
-              href={imageUrl}
-              download="flux-image.png"
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '7px 12px', fontSize: 11, color: 'var(--t3)', textDecoration: 'none', borderTop: '1px solid var(--border)' }}
-            >
-              ↓ Save Image
-            </a>
-          </div>
-        )}
+        <ImageHistory
+          imageUrl={imageUrl}
+          history={history}
+          onSelectImage={url => updateNodeData(id, { imageUrl: url })}
+          downloadName="flux-image"
+        />
       </div>
       <Handle type="source" position={Position.Right} style={{ top: '50%' }} />
     </div>
