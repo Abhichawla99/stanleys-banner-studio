@@ -8,22 +8,22 @@
   "frameAnalysis": {
     "top": {
       "height_px": 605,
-      "contains": "Solid blue background featuring the Amazon Prime logo (white text and smile) and a magenta bar with the text 'LOGO 50% DEPTH OF CONTAINER'."
+      "contains": "A bright blue header containing the white 'prime' logo with its smile arrow, and two large magenta spec-label boxes. One spec label is at the top center, and a second spec label runs vertically down the far left edge of the blue area."
     },
     "bottom": {
       "height_px": 46,
-      "contains": "Solid blue bottom border."
+      "contains": "A solid blue frame border."
     },
     "left": {
       "width_px": 46,
-      "contains": "Vertical bars: a yellow bar on the top (y=0 to y=605) containing the text 'CONTAINER 25% DEPTH OF AD', and a magenta bar from y=605 to the bottom edge containing the text '5% OF WIDTH OF AD GIVES BORDER SIZE'."
+      "contains": "A solid blue vertical frame border. Just below the blue header (within the frame, not the art zone), there is a tall, magenta vertical spec-label running down the frame edge."
     },
     "right": {
       "width_px": 37,
-      "contains": "Solid blue right border."
+      "contains": "A solid blue vertical frame border."
     },
-    "corners": "Amazon Prime logo with a magenta placeholder text bar is at the top-center, above the art zone. Magenta text bars are in the top-left (y=605 corner) and bottom-left, within the yellow left bar.",
-    "instructions": "Place the main hero and critical narrative art within the central area, focusing detail around y=900 to y=1500 (relative to the cutout). Avoid placing important elements like titles or faces near the top edge (y=0-100) and left edge (x=0-100) of the art zone to prevent overlap with the frame's text elements."
+    "corners": "The entire top edge is occupied by a complex blue header with multiple logos and large red spec-label text blocks. A thin blue frame runs along the bottom and both side edges, but is very thin on the right. A tall vertical red spec-label is positioned on the left blue frame, just below the header section.",
+    "instructions": "This is a tall vertical template. The top approximate 25% is completely obscured by branding and spec text, and the far left side also has spec text, so any critical information or main subjects must be kept within the bottom 75% of the frame and shifted away from the left edge. Focus the hero subject in the bottom two-thirds. Any primary text or title must be clearly legible and positioned within the central 50% width and bottom 50% depth of the composition to avoid getting obscured."
   },
-  "frameInstructions": "Place the main hero and critical narrative art within the central area, focusing detail around y=900 to y=1500 (relative to the cutout). Avoid placing important elements like titles or faces near the top edge (y=0-100) and left edge (x=0-100) of the art zone to prevent overlap with the frame's text elements."
+  "frameInstructions": "This is a tall vertical template. The top approximate 25% is completely obscured by branding and spec text, and the far left side also has spec text, so any critical information or main subjects must be kept within the bottom 75% of the frame and shifted away from the left edge. Focus the hero subject in the bottom two-thirds. Any primary text or title must be clearly legible and positioned within the central 50% width and bottom 50% depth of the composition to avoid getting obscured."
 }

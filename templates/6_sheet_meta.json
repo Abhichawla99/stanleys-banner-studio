@@ -8,22 +8,22 @@
   "frameAnalysis": {
     "top": {
       "height_px": 450,
-      "contains": "Solid bright blue header band (25% of total height) featuring the white Prime logo, an informational overlay text box below the logo, and a yellow text strip along the right edge."
+      "contains": "A bright blue header containing the white 'prime' logo with its smile icon centered, positioned approximately in the middle third horizontally. Below the logo is a red label stating 'LOGO IS 50% OF DEPTH OF CONTAINER'."
     },
     "bottom": {
       "height_px": 66,
-      "contains": "Solid bright blue border band (3.6% of total height)."
+      "contains": "A blue border at the very bottom."
     },
     "left": {
       "width_px": 72,
-      "contains": "Solid magenta border band (6% of total width) with text reading '5% OF WIDTH OF AD GIVES BORDER SIZE' rotated 90 degrees."
+      "contains": "A blue border with a vertical magenta text box that reads '5% OF WIDTH OF AD GIVES BORDER SIZE'."
     },
     "right": {
       "width_px": 59,
-      "contains": "Solid bright blue border band (5% of total width)."
+      "contains": "A blue border with a vertical yellow text box containing the text 'CONTANINER IS 25% OF HEIGHT OF AD'."
     },
-    "corners": "The entire bright blue 'header' area (top 25% of the canvas) contains the key Prime branding and informational text overlays. A specific text overlay is also within a vertical yellow strip on the far-right edge of the header area.",
-    "instructions": "Ensure the artwork is designed so that the key hero subject and main title are positioned centrally within the 1069×1284 art zone. The 450px top header contains crucial Prime branding and text that must remain unobstructed. No important subject details or text should be placed near the 72px left magenta border, which also contains text."
+    "corners": "The top-left and top-right contain vertical text boxes; a 'prime' logo and red instructional box are centered in the top header. There are no major design elements or logos in the bottom corners.",
+    "instructions": "Ensure the primary subject or hero image is centered horizontally within the cutout space. Avoid placing any critical details or text in the top 15% of the frame to prevent them from being covered by the header elements. The bottom quarter of the image should remain relatively clear to prevent interference with the bottom border."
   },
-  "frameInstructions": "Ensure the artwork is designed so that the key hero subject and main title are positioned centrally within the 1069×1284 art zone. The 450px top header contains crucial Prime branding and text that must remain unobstructed. No important subject details or text should be placed near the 72px left magenta border, which also contains text."
+  "frameInstructions": "Ensure the primary subject or hero image is centered horizontally within the cutout space. Avoid placing any critical details or text in the top 15% of the frame to prevent them from being covered by the header elements. The bottom quarter of the image should remain relatively clear to prevent interference with the bottom border."
 }

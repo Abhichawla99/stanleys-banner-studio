@@ -8,22 +8,22 @@
   "frameAnalysis": {
     "top": {
       "height_px": 79,
-      "contains": "blue frame border"
+      "contains": "solid blue border frame"
     },
     "bottom": {
       "height_px": 90,
-      "contains": "blue frame border, with the bottom-right corner area containing the yellow overlay and 'CONTAINER IS 25%...' text"
+      "contains": "solid blue border frame with a yellow instruction band on the right"
     },
     "left": {
       "width_px": 76,
-      "contains": "blue frame border, with a vertical magenta bar containing text, flush with the left edge of the art zone"
+      "contains": "solid blue border frame with a vertical magenta text label"
     },
     "right": {
       "width_px": 758,
-      "contains": "blue frame border, containing the 'Prime' logo with smile, the red text box with 'LOGO IS 60%...' text, and the yellow overlay with 'CONTAINER IS 25%...' text"
+      "contains": "branding panel with the Amazon Prime logo and white 'prime' text"
     },
-    "corners": "The Prime logo and associated instructional text boxes (red and yellow) are in the upper and mid-right side of the overall image frame. The left border contains a vertical magenta instructional bar flush with the art zone.",
-    "instructions": "Place the main hero subject of the artwork, such as a character or title, on the left side of the art zone, ensuring it is within the horizontal range of 76 to approximately 2242 px and the vertical range of 79 to 909 px. Avoid placing any critical or large elements on the far right side of the art zone, as they will be obscured by the prominent blue container, Prime logo, and instructional overlays. Similarly, avoid the vertical magenta bar flush with the left edge of the art zone for any vital text or details."
+    "corners": "Amazon Prime smile logo and 'prime' text in the vertical center and top right quadrant of the blue panel.",
+    "instructions": "Place the main hero subject and critical text within the central 80% of the art zone to ensure visibility and prevent obscuration by the wide right-side branding panel. Composition should generally favor a slight bias towards the left half of the art zone. Ensure no text or faces are placed close to any edge, particularly the right edge, as the branding panel extends significantly from that side."
   },
-  "frameInstructions": "Place the main hero subject of the artwork, such as a character or title, on the left side of the art zone, ensuring it is within the horizontal range of 76 to approximately 2242 px and the vertical range of 79 to 909 px. Avoid placing any critical or large elements on the far right side of the art zone, as they will be obscured by the prominent blue container, Prime logo, and instructional overlays. Similarly, avoid the vertical magenta bar flush with the left edge of the art zone for any vital text or details."
+  "frameInstructions": "Place the main hero subject and critical text within the central 80% of the art zone to ensure visibility and prevent obscuration by the wide right-side branding panel. Composition should generally favor a slight bias towards the left half of the art zone. Ensure no text or faces are placed close to any edge, particularly the right edge, as the branding panel extends significantly from that side."
 }

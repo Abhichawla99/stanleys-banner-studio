@@ -11,6 +11,15 @@ import { randomUUID } from "node:crypto";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Load .env file if present (no dependency needed)
+const envPath = path.resolve(__dirname, "../.env");
+if (fs.existsSync(envPath)) {
+  for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
+    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*?)\s*$/);
+    if (match && !process.env[match[1]]) process.env[match[1]] = match[2];
+  }
+}
+
 const IS_VERCEL = !!process.env.VERCEL;
 
 // On Vercel: use /tmp for ephemeral file ops; deployed templates are read-only
@@ -71,25 +80,24 @@ function closestSupportedRatio(w, h) {
 
 function getDesignerCompositionHint(config, az) {
   const ratio = az.width / az.height;
-  const isExtremePortrait = ratio < 0.5;   // very tall, narrow
-  const isPortrait        = ratio < 0.85;  // tall
+  const isExtremePortrait = ratio < 0.5;
+  const isPortrait        = ratio < 0.85;
   const isSquare          = ratio >= 0.85 && ratio <= 1.2;
   const isLandscape       = ratio > 1.2 && ratio < 2.5;
   const isWideLandscape   = ratio >= 2.5 && ratio < 5;
   const isUltraWide       = ratio >= 5;
 
-  // Shape-based layout strategy
   let shape = "";
   if (isExtremePortrait) {
     shape = `FORMAT: Extreme tall/narrow — design like a full-height outdoor poster.
-HERO PLACEMENT: Fill the center of the canvas with the hero character(s), occupying roughly y ${Math.round(az.height * 0.2)}–${Math.round(az.height * 0.85)} px. Characters should face slightly inward, slightly off-centre.
-TITLE PLACEMENT: Upper section, centred horizontally, roughly y ${Math.round(az.height * 0.05)}–${Math.round(az.height * 0.22)} px. If multi-word, stack vertically with generous line spacing.
-LOWER AREA: Ground, crowd, environmental texture from source. No important elements below y ${Math.round(az.height * 0.85)} px.
-BACKGROUND: Dramatic sky filling the top, extending into the upper safe zone around the title.`;
+HERO PLACEMENT: Fill the vertical center of the canvas with the hero character(s), from about 20% down to 85% down the canvas. Characters should face slightly inward, slightly off-centre.
+TITLE PLACEMENT: Upper section, centred horizontally, in the top 5%–22% of the canvas. If multi-word, stack vertically with generous line spacing.
+LOWER AREA: Ground, crowd, environmental texture from source. Keep the bottom 15% free of important content.
+BACKGROUND: Dramatic sky filling the top, extending around the title.`;
   } else if (isPortrait) {
     shape = `FORMAT: Portrait — design like a movie poster.
-HERO PLACEMENT: Center-to-lower portion, roughly y ${Math.round(az.height * 0.25)}–${Math.round(az.height * 0.88)} px, horizontally centred.
-TITLE PLACEMENT: Upper portion, centred, roughly y ${Math.round(az.height * 0.05)}–${Math.round(az.height * 0.25)} px.
+HERO PLACEMENT: Center-to-lower portion of the canvas, from about 25% to 88% down, horizontally centred.
+TITLE PLACEMENT: Upper portion, centred, in the top 5%–25% of the canvas.
 BACKGROUND: Fill top and bottom with environment from source.`;
   } else if (isSquare) {
     shape = `FORMAT: Square — design like a square campaign asset.
@@ -98,35 +106,34 @@ TITLE PLACEMENT: Upper third, centred horizontally.
 BACKGROUND: Fill corners and edges with environment from source.`;
   } else if (isLandscape) {
     shape = `FORMAT: Landscape — design like a horizontal theatrical banner.
-HERO PLACEMENT: Slightly left of centre, roughly x ${Math.round(az.width * 0.1)}–${Math.round(az.width * 0.65)} px.
-TITLE PLACEMENT: Upper-left or upper-centre of safe zone, clear of the hero's face.
+HERO PLACEMENT: Slightly left of centre, occupying roughly the left 10%–65% of the canvas width.
+TITLE PLACEMENT: Upper-left or upper-centre area, clear of the hero's face.
 BACKGROUND: Atmospheric environment fills the right portion and edges.`;
   } else if (isWideLandscape) {
     shape = `FORMAT: Wide landscape — design like a billboard.
-HERO PLACEMENT: Left and centre sections, roughly x ${Math.round(az.width * 0.05)}–${Math.round(az.width * 0.6)} px. Stack or spread multiple characters horizontally.
-TITLE PLACEMENT: Left or lower-centre of safe zone. Large, bold, readable at distance.
+HERO PLACEMENT: Left and centre sections, occupying roughly the left 60% of the canvas. Stack or spread multiple characters horizontally.
+TITLE PLACEMENT: Left or lower-centre area. Large, bold, readable at distance.
 BACKGROUND: Right 35% and all edges filled with atmospheric environment from source only.`;
   } else {
     shape = `FORMAT: Ultra-wide — design like a panoramic OOH billboard.
-HERO PLACEMENT: LEFT half of safe zone, roughly x ${Math.round(az.width * 0.02)}–${Math.round(az.width * 0.5)} px. Keep faces and bodies fully visible.
-TITLE PLACEMENT: Lower-left or centre-left of safe zone.
+HERO PLACEMENT: LEFT half of the canvas. Keep faces and bodies fully visible.
+TITLE PLACEMENT: Lower-left or centre-left area.
 BACKGROUND: Right half and all edges filled with atmospheric environment, no characters.`;
   }
 
-  // Logo-position adjustment
   const logo = config.logo || "";
-  let logoNote = "";
+  let avoidNote = "";
   if (logo === "right") {
-    logoNote = `LOGO SIDE: The brand logo panel is on the RIGHT outside your canvas. Treat the right 30% of your canvas as atmosphere-only — no title, no hero faces there.`;
+    avoidNote = `EDGE CLEARANCE: The right 30% of your canvas will be partially covered after compositing. Keep that area as atmosphere only — no title, no hero faces there.`;
   } else if (logo === "top-left") {
-    logoNote = `LOGO CORNER: The brand logo is in the top-left corner outside your canvas. Shift title and hero slightly right of centre — avoid the top-left quadrant for any key content.`;
+    avoidNote = `EDGE CLEARANCE: The top-left corner will be partially covered after compositing. Shift title and hero slightly right of centre — keep the top-left quadrant free of key content.`;
   } else if (logo === "top-right") {
-    logoNote = `LOGO CORNER: The brand logo is in the top-right corner outside your canvas. Keep title and hero centred or left-of-centre — avoid the top-right quadrant for key content.`;
+    avoidNote = `EDGE CLEARANCE: The top-right corner will be partially covered after compositing. Keep title and hero centred or left-of-centre — keep the top-right quadrant free of key content.`;
   } else if (logo === "top-center") {
-    logoNote = `LOGO POSITION: The brand logo is at the top centre outside your canvas. The very top edge is adjacent to the logo — place the title slightly lower than you normally would, in the upper-middle zone rather than the very top.`;
+    avoidNote = `EDGE CLEARANCE: The top centre will be partially covered after compositing. Place the title slightly lower than you normally would, in the upper-middle zone rather than the very top.`;
   }
 
-  return [shape, logoNote].filter(Boolean).join("\n");
+  return [shape, avoidNote].filter(Boolean).join("\n");
 }
 
 const BANNER_CONFIGS = [
@@ -388,10 +395,10 @@ Return ONLY a JSON object with this structure:
   "left": {"width_px": <number>, "contains": "<what's there>"},
   "right": {"width_px": <number>, "contains": "<what's there>"},
   "corners": "<describe any logos or branding in specific corners, e.g. 'Prime Video logo in top-left', 'QR code bottom-right'>",
-  "instructions": "<Write 2-3 sentences of specific composition instructions for an AI generating artwork for this cutout. Be specific about which areas to avoid and where to place the hero subject and title. Reference pixel coordinates relative to the ${artZone.width}×${artZone.height} art zone.>"
+  "instructions": "<Write 2-3 sentences of composition instructions for an AI generating artwork for this cutout. Describe which areas to avoid and where to place the hero subject and title using RELATIVE terms like 'top 10%', 'left third', 'bottom quarter', 'upper-right corner'. NEVER use pixel coordinates — only use percentages and directional descriptions.>"
 }
 
-Be precise about pixel measurements. Return ONLY the JSON, no other text.` }
+Be precise about the measurements in the top/bottom/left/right fields. The 'instructions' field MUST use only relative terms (percentages, thirds, quarters, halves) — NEVER pixel values. Return ONLY the JSON, no other text.` }
       ]}],
       config: { responseModalities: ["TEXT"] },
     });
@@ -687,27 +694,55 @@ app.delete("/api/templates/:id/custom", (req, res) => {
   res.json({ success: true, reverted: true });
 });
 
+// ============================================================
+// CONCURRENCY CONTROL
+// ============================================================
+const CONCURRENCY_LIMIT = parseInt(process.env.CONCURRENCY_LIMIT || "5", 10);
+
+class Semaphore {
+  constructor(max) { this.max = max; this.current = 0; this.queue = []; }
+  acquire() {
+    if (this.current < this.max) { this.current++; return Promise.resolve(); }
+    return new Promise(resolve => this.queue.push(resolve));
+  }
+  release() {
+    this.current--;
+    if (this.queue.length > 0) { this.current++; this.queue.shift()(); }
+  }
+}
+
 app.post("/api/generate", upload.single("art"), async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY not set" });
 
-  const { bannerIds, model, customPrompt, bannerNotes } = req.body;
+  const { bannerIds, model, customPrompt, bannerNotes, variations: variationsRaw } = req.body;
   const selectedIds = JSON.parse(bannerIds || "[]");
   const selectedModel = model || "gemini-3.1-flash-image-preview";
   const perBannerNotes = JSON.parse(bannerNotes || "{}");
+  const variations = Math.max(1, Math.min(10, parseInt(variationsRaw || "1", 10)));
   if (!req.file) return res.status(400).json({ error: "No art file uploaded" });
   if (!selectedIds.length) return res.status(400).json({ error: "No banners selected" });
+
+  // Build flat job array: N formats × M variations
+  const jobs = [];
+  for (const id of selectedIds) {
+    for (let v = 0; v < variations; v++) {
+      jobs.push({ bannerId: id, variationIndex: v, jobId: `${id}_v${v}` });
+    }
+  }
 
   const ai = new GoogleGenAI({ apiKey });
   const artBuffer = fs.readFileSync(req.file.path);
   const mimeType  = req.file.mimetype || "image/png";
-  console.log(`Upload: ${req.file.originalname}, ${artBuffer.length} bytes`);
+  console.log(`Upload: ${req.file.originalname}, ${artBuffer.length} bytes, ${jobs.length} jobs (${selectedIds.length} formats × ${variations} variations)`);
 
   let processedBuffer = artBuffer;
   if (artBuffer.length > 4 * 1024 * 1024) {
     processedBuffer = await sharp(artBuffer).resize(2048, 2048, { fit: "inside" }).jpeg({ quality: 85 }).toBuffer();
   }
   const artBase64 = processedBuffer.toString("base64");
+
+  const templateCache = new Map(); // Cache template PNGs per bannerId across variations
 
   const runId  = Date.now().toString();
   const runDir = path.join(WORK_DIR, "outputs", runId);
@@ -731,93 +766,114 @@ app.post("/api/generate", upload.single("art"), async (req, res) => {
     }
   };
 
-  send({ type: "start", runId, total: selectedIds.length });
+  send({ type: "start", runId, total: jobs.length });
 
-  const results = [];
-  const defaultPrompt = `You are a senior art director redesigning a piece of key art for a {{RATIO}} banner ({{ART_WIDTH}}×{{ART_HEIGHT}} px).
+  const completedJobs = [];
+  const defaultPrompt = `You are a world-class photo retoucher and art director. Your job is to take existing key art and recompose it for a {{RATIO}} canvas — like a professional retoucher would in Photoshop.
 
-=== SAFE ZONES ===
-The final banner will have a frame overlaid on top. These areas will be PARTIALLY COVERED:
+=== WHAT YOU PRODUCE ===
+A CLEAN, FINISHED piece of artwork. No annotations, no guidelines, no markup — just beautiful, professional campaign art ready for print.
+
+=== COMPOSITION GUIDANCE ===
+The edges of your canvas will be partially covered by a frame after compositing:
 {{LAYOUT}}
-Only put expendable background in those zones — skies, gradients, blurred texture. All important content (faces, titles, logos, characters) MUST be inside the safe area that remains visible.
+Keep expendable background near the edges (sky, gradients, texture). All important content must be inset from edges into the central area.
 
-=== YOUR JOB ===
-You are RECOMPOSING the artwork for a new shape, the way a designer would create an alternate campaign layout. You are NOT resizing or cropping.
+=== YOUR CREATIVE PROCESS ===
+Think like a retoucher recomposing a poster for a new aspect ratio:
 
-1. READ every piece of text in the source art — titles, taglines, dates, credits, logos. Note the EXACT spelling, capitalisation, font style, weight, colour, and visual treatment (shadows, outlines, gradients, effects).
+1. STUDY the source art carefully. Identify:
+   - The hero characters and their poses
+   - The title treatment — exact spelling, font style, colour, visual effects (metallic, shadow, glow, etc.)
+   - Any taglines or dates — exact text, exact styling
+   - The mood, colour palette, lighting, and atmosphere
 
-2. REDESIGN the layout for {{RATIO}}:
-   - The hero subject must be COMPLETE — full head, full body if shown, no awkward crops.
-   - If the original title fits on one line but the new shape is too narrow or too short, REFLOW the text: split across two lines, stack it vertically, move it to a different area — whatever a designer would do. You may resize the title, reposition it, split it across top and bottom, or center it with effects that match the artwork's mood.
-   - Use the SAME font style, the SAME colour, the SAME visual effects. If the title had a metallic gradient and drop shadow, the reflowed title must also have a metallic gradient and drop shadow.
-   - Place characters, title, and key elements in the SAFE ZONE where they will NOT be covered by the banner frame.
-   - Fill the overlay zones with atmospheric extension: continue the sky, fog, sparks, rain, environmental texture from the original.
+2. RECOMPOSE for {{RATIO}}:
+   - Rearrange, reposition, and resize elements from the source art to fill the new shape beautifully
+   - The hero subject must be COMPLETE — full head, full body if shown, no awkward crops
+   - Reflow the title if needed: split across lines, stack vertically, move it — whatever works for the shape. Match the SAME font style, colour, and effects
+   - Extend the background atmosphere (sky, fog, sparks, arena, environment) to fill the new canvas naturally
+   - Be creative with the composition — a great retoucher makes every format look like it was the original
 
-3. SACRED RULES — things you must NEVER change:
-   - The SPELLING of every word. If it says "Lord of the Rings" you output "Lord of the Rings" — letter for letter, no rewording.
-   - The VISUAL IDENTITY — same art style (photorealistic stays photorealistic, illustrated stays illustrated), same colour palette, same lighting mood, same contrast.
-   - The CONTENT — never add characters, objects, or text that are not part of the core artwork. Never remove characters or key artwork elements.
+3. ONLY USE WHAT EXISTS in the source art:
+   - Characters, title, tagline, date text — reposition and resize these freely
+   - Background environment — extend and fill naturally
+   - That's it. NOTHING ELSE.
 
-4. PLATFORM BRANDING — IGNORE AND STRIP:
-   The source image may contain platform/streaming-service branding that is NOT part of the artwork. You MUST identify and EXCLUDE all of the following:
-   - Streaming service logos (e.g. Prime Video, Netflix, Disney+, HBO, Hulu, Apple TV+, Peacock, Paramount+, etc.)
-   - Colored borders, frames, or background panels added by the platform (e.g. solid blue, red, or black borders around the key art)
-   - Network bugs, channel logos, or broadcaster watermarks
-   - "Watch now", "Stream on", "Only on", "Exclusive" platform badges
-   - QR codes, URLs, or app store badges
-   These are DISTRIBUTION PACKAGING, not artwork. Strip them out completely. Your output must contain ONLY the show/movie key art — the characters, title treatment, tagline, and atmospheric background. Do NOT reproduce any platform branding, colored borders, or service logos.
+=== WHAT TO STRIP FROM THE SOURCE ===
+The source image may have packaging that is NOT part of the artwork:
+- Streaming service branding, network watermarks, colored borders/frames added by distributors
+- "Watch now" badges, QR codes, app store icons
+These are packaging — strip them completely. Output ONLY the show/movie artwork.
 
-5. ABSOLUTE RULES:
-   - NEVER change, rephrase, abbreviate, or misspell ANY text from the original artwork (titles, taglines, dates — NOT platform branding text).
-   - NEVER stretch, squash, or distort any element.
-   - NEVER add borders, letterboxing, or pillarboxing.
-   - NEVER leave dead space — fill the full {{RATIO}} canvas.
-   - NEVER crop the hero subject's face or head.
-   - NEVER place important content in the overlay zones described above — it WILL be covered.
-   - NEVER reproduce dimension lines, measurement annotations, pixel counts, ruler marks, grid overlays, bounding boxes, or any technical markup that may appear in the source image. These are NOT part of the artwork — they are editing artifacts. Ignore them completely and produce clean artwork only.
-   - NEVER reproduce platform branding, streaming service logos, or colored platform borders from the source image. These will be added separately by the banner template system.`;
+=== ABSOLUTE RULES ===
+- ONLY use elements that exist in the source artwork. NEVER invent, generate, or add ANY element that is not already in the source — no new text, no new graphics, no watermarks, no branding of any kind.
+- NEVER change the spelling of any text from the source artwork.
+- NEVER stretch, squash, or distort elements.
+- NEVER add borders, letterboxing, or pillarboxing.
+- NEVER leave dead space — fill the full {{RATIO}} canvas.
+- NEVER crop the hero subject's face or head.
+- NEVER draw lines, boxes, annotations, measurements, or any technical markup. Your output is FINISHED ART.
+- NEVER place important content near the canvas edges.`;
 
-  for (const id of selectedIds) {
-    const config = BANNER_CONFIGS.find(c => c.id === id);
-    if (!config) continue;
+  const sem = new Semaphore(CONCURRENCY_LIMIT);
 
-    send({ type: "progress", bannerId: id, step: "regenerating", label: config.label });
+  async function processJob(job) {
+    const { bannerId, variationIndex, jobId } = job;
+    const config = BANNER_CONFIGS.find(c => c.id === bannerId);
+    if (!config) return;
 
+    if (clientDisconnected) return;
+
+    await sem.acquire();
     try {
+      if (clientDisconnected) return;
+
+      // Random jitter 0-2s INSIDE the semaphore to stagger concurrent Gemini API calls
+      await new Promise(r => setTimeout(r, Math.random() * 2000));
+
+      const varLabel = variations > 1 ? `${config.label} v${variationIndex + 1}` : config.label;
+      send({ type: "progress", bannerId, jobId, variationIndex, step: "regenerating", label: varLabel });
+
       const az = config._artZone;
       const artRatio = closestSupportedRatio(az.width, az.height);
 
       const margin = Math.max(30, Math.round(Math.min(az.width, az.height) * 0.06));
-      const safeL = margin, safeT = margin;
-      const safeR = az.width - margin, safeB = az.height - margin;
       const compositionHint = getDesignerCompositionHint(config, az);
 
-      // Template-specific frame analysis instructions (generated when template was uploaded)
-      const frameInstructions = config._frameInstructions;
+      const rawFrameInstructions = config._frameInstructions;
+      // Strip any pixel coordinates from cached frame instructions to prevent the model from drawing them
+      const frameInstructions = rawFrameInstructions
+        ? rawFrameInstructions
+            .replace(/\b\d+\s*[×x]\s*\d+\s*(px|pixels?)\b/gi, '')
+            .replace(/\b[xy]\s*[=:]\s*\d+/gi, '')
+            .replace(/\b\d+\s*px\b/gi, '')
+            .replace(/\b\d+\s*pixels?\b/gi, '')
+            .replace(/\s{2,}/g, ' ')
+            .trim()
+        : null;
       const frameBlock = frameInstructions
-        ? `\n\nTEMPLATE-SPECIFIC INSTRUCTIONS (from frame analysis):\n${frameInstructions}\nThese instructions are based on the actual banner frame that will be overlaid. Follow them precisely.`
+        ? `\n\nTEMPLATE-SPECIFIC COMPOSITION NOTES:\n${frameInstructions}\nFollow these composition guidelines — but remember: NEVER draw any lines, boxes, or annotations on the artwork.`
         : '';
 
-      const computedLayout = `Your generated canvas IS the visible art window: ${az.width}×${az.height} px.
-The banner frame border runs flush along ALL FOUR EDGES of your canvas — the outermost ${margin}px on every side will be partially covered by the frame edge.
-HARD SAFE ZONE — ALL important content (title, faces, characters, logos) must stay inside: x ${safeL}–${safeR} px, y ${safeT}–${safeB} px.
+      const marginPct = Math.round((margin / Math.min(az.width, az.height)) * 100);
+      const computedLayout = `Your generated canvas is the visible art window.
+The banner frame border runs flush along ALL FOUR EDGES of your canvas — roughly the outermost ${marginPct}% on every side will be partially covered by the frame edge.
+SAFE ZONE: Keep ALL important content (title, faces, characters) inset from every edge by at least ${marginPct}% of the canvas size.
 Outside the safe zone: background only — sky, atmosphere, texture. No text, no faces, no characters.
 
 DESIGNER COMPOSITION GUIDE for this format:
 ${compositionHint}${frameBlock}`;
 
-      const bannerNote = perBannerNotes[id]?.trim();
+      const bannerNote = perBannerNotes[bannerId]?.trim();
 
       let basePrompt = (customPrompt || defaultPrompt)
         .replaceAll("{{RATIO}}", artRatio)
         .replaceAll("{{LAYOUT}}", computedLayout)
-        .replaceAll("{{ART_WIDTH}}", String(az.width))
-        .replaceAll("{{ART_HEIGHT}}", String(az.height));
+;
 
       let prompt;
       if (bannerNote) {
-        // Inject at the top so it has primacy — Gemini weights early instructions most heavily.
-        // Also repeat as final line for recency effect.
         const noteBlock = `=== PRIORITY INSTRUCTIONS FOR THIS FORMAT ===\n${bannerNote}\n=== END PRIORITY INSTRUCTIONS ===\n\n`;
         const firstNewline = basePrompt.indexOf('\n');
         prompt = firstNewline >= 0
@@ -844,10 +900,10 @@ ${compositionHint}${frameBlock}`;
           });
           break;
         } catch (retryErr) {
-          console.error(`[${id}] Attempt ${attempt + 1} failed:`, retryErr.message?.slice(0, 100));
+          console.error(`[${jobId}] Attempt ${attempt + 1} failed:`, retryErr.message?.slice(0, 100));
           if (attempt < 2) {
-            const wait = (attempt + 1) * 10000;
-            send({ type: "progress", bannerId: id, step: "regenerating", label: `${config.label} (retry ${attempt + 1})` });
+            const wait = retryErr.status === 429 ? (attempt + 1) * 15000 : (attempt + 1) * 10000;
+            send({ type: "progress", bannerId, jobId, variationIndex, step: "regenerating", label: `${varLabel} (retry ${attempt + 1})` });
             await new Promise(r => setTimeout(r, wait));
           } else {
             throw retryErr;
@@ -868,57 +924,63 @@ ${compositionHint}${frameBlock}`;
         throw new Error(text.slice(0, 200));
       }
 
-      const regenPath = path.join(runDir, "regenerated", `${id}.png`);
+      const fileSuffix = variations > 1 ? `${bannerId}_v${variationIndex}` : bannerId;
+      const regenPath = path.join(runDir, "regenerated", `${fileSuffix}.png`);
       fs.writeFileSync(regenPath, regenBuffer);
 
-      send({ type: "progress", bannerId: id, step: "compositing", label: config.label });
+      send({ type: "progress", bannerId, jobId, variationIndex, step: "compositing", label: varLabel });
 
-      const resized = await sharp(regenBuffer)
+      let resized = await sharp(regenBuffer)
         .resize(az.width, az.height, { fit: "cover", position: "centre" })
         .png().toBuffer();
 
-      const artLayer = await sharp({
+      let artLayer = await sharp({
         create: { width: config.width, height: config.height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } }
       })
         .composite([{ input: resized, left: az.x, top: az.y }])
         .png().toBuffer();
 
       const tplPath = config._customTemplate
-        ? templatePath(`${id}_custom.png`)
-        : templatePath(`${id}.png`);
-      const frameOverlay = fs.readFileSync(tplPath);
-      const banner = await sharp(artLayer)
+        ? templatePath(`${bannerId}_custom.png`)
+        : templatePath(`${bannerId}.png`);
+      // Cache template reads — same template is reused across variations
+      if (!templateCache.has(bannerId)) {
+        templateCache.set(bannerId, fs.readFileSync(tplPath));
+      }
+      const frameOverlay = templateCache.get(bannerId);
+      let banner = await sharp(artLayer)
         .composite([{ input: frameOverlay, left: 0, top: 0 }])
         .png().toBuffer();
 
-      const bannerPath = path.join(runDir, "banners", `${id}.png`);
+      const bannerPath = path.join(runDir, "banners", `${fileSuffix}.png`);
       fs.writeFileSync(bannerPath, banner);
 
-      // Include base64 data in the event — works on Vercel (no persistent URLs needed)
-      // Also keep URL fields for local dev
       send({
         type: "complete",
-        bannerId: id,
+        bannerId,
+        jobId,
+        variationIndex,
         label: config.label,
         width: config.width,
         height: config.height,
-        bannerData:   banner.toString("base64"),
-        regenData:    regenBuffer.toString("base64"),
-        templateData: fs.readFileSync(tplPath).toString("base64"),
-        regenUrl:     `/outputs/${runId}/regenerated/${id}.png`,
-        bannerUrl:    `/outputs/${runId}/banners/${id}.png`,
-        templateUrl:  `/templates/${id}.png`,
+        regenUrl:     `/outputs/${runId}/regenerated/${fileSuffix}.png`,
+        bannerUrl:    `/outputs/${runId}/banners/${fileSuffix}.png`,
+        templateUrl:  `/templates/${bannerId}.png`,
       });
 
-      results.push(id);
-      await new Promise(r => setTimeout(r, 2000));
+      completedJobs.push(jobId);
+
+      // Help GC reclaim large buffers
+      regenBuffer = null;
+      resized = null;
+      artLayer = null;
+      banner = null;
 
     } catch (err) {
-      // Log error
       const errStr = err.message || String(err);
       try {
         fs.writeFileSync(
-          path.join(WORK_DIR, `outputs/last_error_${id}.txt`),
+          path.join(WORK_DIR, `outputs/last_error_${jobId}.txt`),
           JSON.stringify({ message: errStr, stack: err.stack }),
           "utf8"
         );
@@ -944,12 +1006,16 @@ ${compositionHint}${frameBlock}`;
         }
       }
       if (err.code) msg = `[${err.code}] ${msg}`;
-      console.error(`[${id}] Error:`, msg);
-      send({ type: "error", bannerId: id, label: config.label, error: msg });
+      console.error(`[${jobId}] Error:`, msg);
+      send({ type: "error", bannerId, jobId, variationIndex, label: config.label, error: msg });
+    } finally {
+      sem.release();
     }
   }
 
-  send({ type: "done", runId, completed: results.length, total: selectedIds.length });
+  await Promise.allSettled(jobs.map(job => processJob(job)));
+
+  send({ type: "done", runId, completed: completedJobs.length, total: jobs.length });
   res.end();
 
   try { fs.unlinkSync(req.file.path); } catch {}

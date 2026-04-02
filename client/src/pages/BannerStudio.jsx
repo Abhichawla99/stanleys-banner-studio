@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const API = ''
@@ -71,6 +71,8 @@ export default function BannerStudio() {
   const [newFormatName, setNewFormatName] = useState('')
   const [bannerNotes, setBannerNotes] = useState({})
   const [notesOpen, setNotesOpen] = useState({})
+  const [variations, setVariations] = useState(1)
+  const [favorites, setFavorites] = useState({})
   const fileRef = useRef()
   const newFormatRef = useRef()
   const templateRefs = useRef({})
@@ -142,11 +144,40 @@ export default function BannerStudio() {
 
   const toggle = (id) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])
 
+  const totalJobs = selected.length * variations
+
+  const toggleFavorite = (bannerId, jobId) => {
+    setFavorites(f => f[bannerId] === jobId ? { ...f, [bannerId]: undefined } : { ...f, [bannerId]: jobId })
+  }
+
+  const downloadFavorites = () => {
+    const favResults = results.filter(r => favorites[r.bannerId] === r.jobId)
+    if (!favResults.length) return
+    for (const r of favResults) {
+      const a = document.createElement('a')
+      a.href = r.bannerUrl
+      a.download = `${r.label.replace(/\s+/g, '-')}${variations > 1 ? `-v${r.variationIndex + 1}` : ''}.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    }
+  }
+
+  const groupedResults = useMemo(() => {
+    const groups = {}
+    for (const r of results) {
+      if (!groups[r.bannerId]) groups[r.bannerId] = []
+      groups[r.bannerId].push(r)
+    }
+    return Object.entries(groups)
+  }, [results])
+
   const generate = async () => {
     if (!artFile || !selected.length) return
     setGenerating(true)
     setResults([])
     setProgress([])
+    setFavorites({})
     setViewTab('banners')
     setSelectedResult(null)
 
@@ -156,6 +187,7 @@ export default function BannerStudio() {
     form.append('model', model)
     form.append('customPrompt', prompt)
     form.append('bannerNotes', JSON.stringify(bannerNotes))
+    form.append('variations', String(variations))
 
     try {
       const response = await fetch(`${API}/api/generate`, { method: 'POST', body: form })
@@ -176,15 +208,16 @@ export default function BannerStudio() {
             const data = JSON.parse(line.slice(6))
             if (data.type === 'progress') {
               setProgress(p => {
-                const idx = p.findIndex(x => x.bannerId === data.bannerId)
+                const key = data.jobId || data.bannerId
+                const idx = p.findIndex(x => (x.jobId || x.bannerId) === key)
                 if (idx >= 0) { const u = [...p]; u[idx] = data; return u }
                 return [...p, data]
               })
             } else if (data.type === 'complete') {
               setResults(r => [...r, data])
-              setProgress(p => p.map(x => x.bannerId === data.bannerId ? { ...x, step: 'done' } : x))
+              setProgress(p => p.map(x => (x.jobId || x.bannerId) === (data.jobId || data.bannerId) ? { ...x, step: 'done' } : x))
             } else if (data.type === 'error') {
-              setProgress(p => p.map(x => x.bannerId === data.bannerId ? { ...x, step: 'error', error: data.error } : x))
+              setProgress(p => p.map(x => (x.jobId || x.bannerId) === (data.jobId || data.bannerId) ? { ...x, step: 'error', error: data.error } : x))
             }
           } catch {}
         }
@@ -198,6 +231,7 @@ export default function BannerStudio() {
   const completedCount = progress.filter(p => p.step === 'done').length
   const errorCount = progress.filter(p => p.step === 'error').length
   const canGenerate = artFile && selected.length && !generating
+  const hasFavorites = Object.values(favorites).some(Boolean)
 
   return (
     <div className="app">
@@ -356,6 +390,24 @@ export default function BannerStudio() {
               </div>
             </div>
 
+            {/* Variations */}
+            <div className="panel">
+              <div className="panel-label">Variations per format</div>
+              <div className="variations-row">
+                <input
+                  type="range"
+                  min={1} max={10}
+                  value={variations}
+                  onChange={(e) => setVariations(Number(e.target.value))}
+                  className="variations-slider"
+                />
+                <span className="variations-count">{variations}</span>
+              </div>
+              <div className="variations-hint">
+                {totalJobs} total image{totalJobs !== 1 ? 's' : ''} — {selected.length} format{selected.length !== 1 ? 's' : ''} × {variations} variation{variations !== 1 ? 's' : ''}
+              </div>
+            </div>
+
             {/* System Prompt */}
             <div className="panel">
               <div className="panel-header clickable" onClick={() => setShowSettings(!showSettings)}>
@@ -394,11 +446,11 @@ export default function BannerStudio() {
               {generating ? (
                 <span className="gen-inner">
                   <span className="gen-spinner" />
-                  Processing {completedCount}/{selected.length}
+                  Processing {completedCount}/{totalJobs}
                 </span>
               ) : (
                 <span className="gen-inner">
-                  Generate {selected.length} format{selected.length !== 1 ? 's' : ''}
+                  Generate {totalJobs} image{totalJobs !== 1 ? 's' : ''}
                   <span className="gen-arrow">→</span>
                 </span>
               )}
@@ -412,14 +464,14 @@ export default function BannerStudio() {
               <div className="progress-block">
                 <div className="progress-top">
                   <span className="progress-title">Processing</span>
-                  <span className="progress-frac">{completedCount}<span className="progress-of">/{progress.length}</span></span>
+                  <span className="progress-frac">{completedCount}<span className="progress-of">/{totalJobs}</span></span>
                 </div>
                 <div className="progress-track">
-                  <div className="progress-fill" style={{ width: `${(completedCount / Math.max(progress.length, 1)) * 100}%` }} />
+                  <div className="progress-fill" style={{ width: `${(completedCount / Math.max(totalJobs, 1)) * 100}%` }} />
                 </div>
                 <div className="progress-pills">
                   {progress.map(p => (
-                    <div key={p.bannerId} className={`pill ${p.step}`}>
+                    <div key={p.jobId || p.bannerId} className={`pill ${p.step}`}>
                       <span className={`pill-dot ${p.step}`} />
                       <span className="pill-name">{p.label}</span>
                       <span className="pill-status">
@@ -451,38 +503,71 @@ export default function BannerStudio() {
                       >{tab.label}</button>
                     ))}
                   </div>
-                  <span className="results-n">{results.length} outputs</span>
+                  <div className="results-bar-right">
+                    {variations > 1 && hasFavorites && (
+                      <button className="dl-fav-btn" onClick={downloadFavorites}>
+                        ↓ Favorites ({Object.values(favorites).filter(Boolean).length})
+                      </button>
+                    )}
+                    <span className="results-n">{results.length} outputs</span>
+                  </div>
                 </div>
 
-                <div className="results-grid">
-                  {results.map(r => (
-                    <div
-                      key={r.bannerId}
-                      className="result-card"
-                      onClick={() => setSelectedResult(selectedResult === r.bannerId ? null : r.bannerId)}
-                    >
-                      <div className="result-img-wrap">
-                        <img
-                          src={
-                            viewTab === 'banners'      ? (r.bannerData   ? `data:image/png;base64,${r.bannerData}`   : r.bannerUrl)   :
-                            viewTab === 'regenerated'  ? (r.regenData    ? `data:image/png;base64,${r.regenData}`    : r.regenUrl)    :
-                                                         (r.templateData ? `data:image/png;base64,${r.templateData}` : r.templateUrl)
-                          }
-                          className="result-img"
-                        />
+                <div className="results-grouped">
+                  {groupedResults.map(([bannerId, vars]) => (
+                    <div key={bannerId} className="format-group">
+                      <div className="format-group-header">
+                        <span className="format-group-name">{vars[0].label}</span>
+                        <span className="format-group-dims">{vars[0].width}×{vars[0].height}</span>
+                        {vars.length > 1 && <span className="format-group-count">{vars.length} variations</span>}
                       </div>
-                      <div className="result-footer">
-                        <div className="result-info">
-                          <span className="result-name">{r.label}</span>
-                          <span className="result-dims">{r.width}×{r.height}</span>
-                        </div>
-                        <a
-                          href={r.bannerData ? `data:image/png;base64,${r.bannerData}` : r.bannerUrl}
-                          download={r.bannerData ? `${r.label.replace(/\s+/g,'-')}.png` : undefined}
-                          target={r.bannerData ? undefined : "_blank"}
-                          className="dl-btn"
-                          onClick={e => e.stopPropagation()}
-                        >↓</a>
+                      <div className={`variation-row ${vars.length === 1 ? 'single' : ''}`}>
+                        {vars.map(r => {
+                          const rKey = r.jobId || r.bannerId
+                          const isFav = favorites[r.bannerId] === rKey
+                          return (
+                            <div
+                              key={rKey}
+                              className={`result-card ${isFav ? 'favorited' : ''}`}
+                              onClick={() => setSelectedResult(selectedResult === rKey ? null : rKey)}
+                            >
+                              <div className="result-img-wrap">
+                                <img
+                                  src={
+                                    viewTab === 'banners'      ? (r.bannerUrl)   :
+                                    viewTab === 'regenerated'  ? (r.regenUrl)    :
+                                                                 (r.templateUrl)
+                                  }
+                                  className="result-img"
+                                />
+                                {variations > 1 && (
+                                  <div className="variation-badge">v{(r.variationIndex ?? 0) + 1}</div>
+                                )}
+                              </div>
+                              <div className="result-footer">
+                                <div className="result-info">
+                                  <span className="result-name">{r.label}{variations > 1 ? ` v${(r.variationIndex ?? 0) + 1}` : ''}</span>
+                                  <span className="result-dims">{r.width}×{r.height}</span>
+                                </div>
+                                <div className="result-actions">
+                                  {variations > 1 && (
+                                    <button
+                                      className={`fav-btn ${isFav ? 'active' : ''}`}
+                                      onClick={(e) => { e.stopPropagation(); toggleFavorite(r.bannerId, rKey) }}
+                                      title={isFav ? 'Remove favorite' : 'Set as favorite'}
+                                    >{isFav ? '★' : '☆'}</button>
+                                  )}
+                                  <a
+                                    href={r.bannerUrl}
+                                    target="_blank"
+                                    className="dl-btn"
+                                    onClick={e => e.stopPropagation()}
+                                  >↓</a>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   ))}
@@ -515,27 +600,44 @@ export default function BannerStudio() {
 
       {/* ===== LIGHTBOX ===== */}
       {selectedResult && (() => {
-        const r = results.find(x => x.bannerId === selectedResult)
+        const r = results.find(x => (x.jobId || x.bannerId) === selectedResult)
         if (!r) return null
+        const siblings = results.filter(x => x.bannerId === r.bannerId)
+        const currentIdx = siblings.findIndex(x => (x.jobId || x.bannerId) === selectedResult)
+        const hasPrev = currentIdx > 0
+        const hasNext = currentIdx < siblings.length - 1
+        const isFav = favorites[r.bannerId] === selectedResult
         return (
           <div className="lightbox" onClick={() => setSelectedResult(null)}>
             <div className="lightbox-body" onClick={e => e.stopPropagation()}>
               <button className="lightbox-x" onClick={() => setSelectedResult(null)}>×</button>
+              {siblings.length > 1 && hasPrev && (
+                <button className="lightbox-nav lightbox-prev" onClick={() => setSelectedResult(siblings[currentIdx - 1].jobId || siblings[currentIdx - 1].bannerId)}>‹</button>
+              )}
+              {siblings.length > 1 && hasNext && (
+                <button className="lightbox-nav lightbox-next" onClick={() => setSelectedResult(siblings[currentIdx + 1].jobId || siblings[currentIdx + 1].bannerId)}>›</button>
+              )}
               <img
                 src={
-                  viewTab === 'banners'      ? (r.bannerData   ? `data:image/png;base64,${r.bannerData}`   : r.bannerUrl)   :
-                  viewTab === 'regenerated'  ? (r.regenData    ? `data:image/png;base64,${r.regenData}`    : r.regenUrl)    :
-                                               (r.templateData ? `data:image/png;base64,${r.templateData}` : r.templateUrl)
+                  viewTab === 'banners'      ? (r.bannerUrl)   :
+                  viewTab === 'regenerated'  ? (r.regenUrl)    :
+                                               (r.templateUrl)
                 }
                 className="lightbox-img"
               />
               <div className="lightbox-bar">
-                <span className="lightbox-name">{r.label}</span>
+                <span className="lightbox-name">{r.label}{variations > 1 ? ` v${(r.variationIndex ?? 0) + 1}` : ''}</span>
+                {siblings.length > 1 && <span className="lightbox-pos">{currentIdx + 1}/{siblings.length}</span>}
                 <span className="lightbox-dims">{r.width}×{r.height}</span>
+                {variations > 1 && (
+                  <button
+                    className={`fav-btn lightbox-fav ${isFav ? 'active' : ''}`}
+                    onClick={() => toggleFavorite(r.bannerId, selectedResult)}
+                  >{isFav ? '★' : '☆'}</button>
+                )}
                 <a
-                  href={r.bannerData ? `data:image/png;base64,${r.bannerData}` : r.bannerUrl}
-                  download={r.bannerData ? `${r.label.replace(/\s+/g,'-')}.png` : undefined}
-                  target={r.bannerData ? undefined : "_blank"}
+                  href={r.bannerUrl}
+                  target="_blank"
                   className="dl-btn"
                 >↓ Download</a>
               </div>
@@ -545,36 +647,37 @@ export default function BannerStudio() {
       })()}
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@300;400;500&display=swap');
 
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
         :root {
-          --bg: #0b0b0e;
-          --surface: #111116;
-          --surface-2: #18181f;
-          --surface-3: #1f1f28;
-          --border: rgba(255,255,255,0.08);
-          --border-hover: rgba(255,255,255,0.15);
-          --text: #f0f0f5;
-          --text-dim: #9090a0;
-          --text-muted: #50505e;
-          --accent: #ff6b2b;
-          --accent-dim: rgba(255,107,43,0.14);
-          --accent-hover: #ff7f45;
-          --accent-glow: rgba(255,107,43,0.25);
-          --green: #2de88a;
-          --green-dim: rgba(45,232,138,0.12);
-          --red: #ff4d6a;
-          --red-dim: rgba(255,77,106,0.12);
-          --blue: #4da6ff;
-          --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
-          --display: 'Space Grotesk', -apple-system, sans-serif;
-          --radius: 6px;
+          --bg: #fafafa;
+          --surface: #ffffff;
+          --surface-2: #f5f5f5;
+          --surface-3: #ebebeb;
+          --border: rgba(0,0,0,0.08);
+          --border-hover: rgba(0,0,0,0.16);
+          --text: #1a1a1a;
+          --text-dim: #6b6b6b;
+          --text-muted: #a0a0a0;
+          --accent: #1a1a1a;
+          --accent-dim: rgba(0,0,0,0.05);
+          --accent-hover: #333;
+          --accent-glow: rgba(0,0,0,0.08);
+          --green: #1a8754;
+          --green-dim: rgba(26,135,84,0.08);
+          --red: #dc3545;
+          --red-dim: rgba(220,53,69,0.08);
+          --blue: #2563eb;
+          --mono: 'JetBrains Mono', 'SF Mono', monospace;
+          --sans: 'DM Sans', 'Inter', -apple-system, system-ui, sans-serif;
+          --display: 'Inter', -apple-system, system-ui, sans-serif;
+          --radius: 8px;
         }
 
         .app {
-          font-family: var(--mono);
+          font-family: var(--sans);
           background: var(--bg);
           color: var(--text);
           height: 100vh;
@@ -587,7 +690,7 @@ export default function BannerStudio() {
         /* ===== HEADER ===== */
         .header {
           display: flex; align-items: center; justify-content: space-between;
-          padding: 0 20px; height: 52px;
+          padding: 0 32px; height: 64px;
           background: var(--surface);
           border-bottom: 1px solid var(--border);
           flex-shrink: 0;
@@ -596,316 +699,316 @@ export default function BannerStudio() {
         .header-left, .header-right { display: flex; align-items: center; }
 
         .back-btn {
-          width: 32px; height: 32px; border-radius: 6px; border: 1px solid var(--border);
+          width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border);
           background: transparent; color: var(--text-dim); font-size: 16px;
           display: flex; align-items: center; justify-content: center;
-          cursor: pointer; transition: all 0.15s; font-family: var(--mono);
+          cursor: pointer; transition: all 0.2s; font-family: var(--sans);
         }
-        .back-btn:hover { color: var(--text); border-color: var(--border-hover); background: var(--surface-2); }
-        .brand { display: flex; align-items: center; gap: 12px; }
+        .back-btn:hover { color: var(--text); background: var(--surface-2); border-color: var(--border-hover); }
+        .brand { display: flex; align-items: center; gap: 14px; }
         .brand-mark {
-          width: 30px; height: 30px; border-radius: 5px;
-          background: var(--accent);
+          width: 36px; height: 36px; border-radius: 50%;
+          background: var(--text);
           display: flex; align-items: center; justify-content: center;
-          font-family: var(--display); font-weight: 700; font-size: 15px; color: #fff;
-          box-shadow: 0 0 16px var(--accent-glow);
+          font-family: serif; font-weight: 400; font-size: 18px; color: #fff;
+          font-style: italic;
         }
-        .brand-text { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
-        .brand-name { font-family: var(--display); font-weight: 600; color: #fff; letter-spacing: -0.3px; }
-        .brand-divider { color: var(--text-muted); font-weight: 300; }
-        .brand-sub { color: var(--text-dim); font-weight: 400; font-size: 12px; }
+        .brand-text { display: flex; align-items: baseline; gap: 10px; }
+        .brand-name { font-family: var(--sans); font-weight: 600; font-size: 15px; color: var(--text); letter-spacing: -0.3px; }
+        .brand-divider { color: var(--text-muted); font-weight: 300; font-size: 18px; }
+        .brand-sub { color: var(--text-dim); font-weight: 400; font-size: 13px; letter-spacing: -0.2px; }
 
         .model-switch {
-          display: flex; border: 1px solid var(--border); border-radius: var(--radius);
-          overflow: hidden;
+          display: flex; gap: 4px; background: var(--surface-2); border-radius: 10px;
+          padding: 3px;
         }
         .model-opt {
           display: flex; flex-direction: column; align-items: flex-start;
-          padding: 7px 18px; border: none; border-right: 1px solid var(--border);
-          background: transparent; cursor: pointer; transition: all 0.15s;
-          min-width: 138px;
+          padding: 8px 20px; border: none; border-radius: 8px;
+          background: transparent; cursor: pointer; transition: all 0.2s;
+          min-width: 140px;
         }
-        .model-opt:last-child { border-right: none; }
         .model-opt .model-label {
-          font-family: var(--mono); font-size: 11px; font-weight: 500;
-          color: var(--text-dim); letter-spacing: 0.3px; transition: color 0.15s;
+          font-family: var(--sans); font-size: 12px; font-weight: 600;
+          color: var(--text-dim); letter-spacing: -0.2px; transition: color 0.15s;
         }
         .model-opt .model-desc {
-          font-family: var(--mono); font-size: 9px; color: var(--text-muted);
+          font-family: var(--sans); font-size: 10px; color: var(--text-muted);
           margin-top: 1px; transition: color 0.15s;
         }
-        .model-opt.active { background: var(--surface-2); }
-        .model-opt.active .model-label { color: var(--accent); }
+        .model-opt.active { background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+        .model-opt.active .model-label { color: var(--text); }
         .model-opt.active .model-desc { color: var(--text-dim); }
         .model-opt:hover:not(.active) .model-label { color: var(--text); }
 
         /* ===== MAIN LAYOUT ===== */
         .main {
           flex: 1; overflow: hidden;
-          padding: 16px 20px;
+          padding: 24px 32px;
           display: flex; flex-direction: column;
         }
         .workspace {
           display: grid;
-          grid-template-columns: 340px 1fr;
-          gap: 14px;
+          grid-template-columns: 360px 1fr;
+          gap: 24px;
           flex: 1;
           min-height: 0;
         }
 
         /* ===== SIDEBAR ===== */
         .sidebar {
-          display: flex; flex-direction: column; gap: 10px;
+          display: flex; flex-direction: column; gap: 16px;
           overflow-y: auto; min-height: 0;
-          padding-right: 2px;
+          padding-right: 4px;
         }
         .sidebar::-webkit-scrollbar { width: 3px; }
-        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+        .sidebar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 99px; }
 
         .panel {
           background: var(--surface); border: 1px solid var(--border);
-          border-radius: 8px; padding: 14px;
-          transition: border-color 0.15s; flex-shrink: 0;
+          border-radius: 12px; padding: 20px;
+          transition: all 0.2s; flex-shrink: 0;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.04);
         }
-        .panel:hover { border-color: var(--border-hover); }
+        .panel:hover { border-color: var(--border-hover); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
         .panel-label {
-          font-family: var(--mono); font-size: 10px; font-weight: 500;
-          color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.5px;
-          margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+          font-family: var(--sans); font-size: 11px; font-weight: 600;
+          color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.2px;
+          margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
         }
         .panel-header {
           display: flex; justify-content: space-between; align-items: center;
-          margin-bottom: 12px;
+          margin-bottom: 16px;
         }
         .panel-header .panel-label { margin-bottom: 0; }
         .panel-header.clickable { cursor: pointer; margin-bottom: 0; }
         .panel-header.clickable:hover .panel-label { color: var(--text); }
 
         .link-btn {
-          background: none; border: none; font-family: var(--mono);
-          font-size: 10px; color: var(--accent); cursor: pointer;
-          letter-spacing: 0.5px; text-transform: uppercase; font-weight: 600;
-          transition: color 0.15s; padding: 0;
+          background: none; border: none; font-family: var(--sans);
+          font-size: 11px; color: var(--text-dim); cursor: pointer;
+          font-weight: 600; transition: color 0.15s; padding: 0;
+          text-decoration: underline; text-underline-offset: 2px;
         }
-        .link-btn:hover { color: var(--accent-hover); text-decoration: underline; }
+        .link-btn:hover { color: var(--text); }
 
         .chevron {
-          font-size: 18px; color: var(--text-dim); font-weight: 300;
+          font-size: 18px; color: var(--text-muted); font-weight: 300;
           transition: transform 0.2s; display: inline-block;
         }
         .chevron.open { transform: rotate(90deg); }
 
         /* ===== DROPZONE ===== */
         .dropzone {
-          border: 1px dashed rgba(255,255,255,0.12); border-radius: 6px;
-          padding: 22px 16px; text-align: center; cursor: pointer;
-          transition: all 0.2s;
+          border: 2px dashed rgba(0,0,0,0.12); border-radius: 12px;
+          padding: 32px 20px; text-align: center; cursor: pointer;
+          transition: all 0.25s;
         }
-        .dropzone:hover { border-color: var(--accent); background: var(--accent-dim); }
-        .dropzone.drag-over { border-color: var(--accent); background: rgba(255,107,43,0.1); box-shadow: 0 0 0 3px var(--accent-glow); }
-        .dropzone.has-file { border-style: solid; border-color: var(--border); padding: 10px; }
+        .dropzone:hover { border-color: var(--text); background: var(--surface-2); }
+        .dropzone.drag-over { border-color: var(--text); background: var(--surface-2); box-shadow: 0 0 0 4px rgba(0,0,0,0.04); }
+        .dropzone.has-file { border-style: solid; border-width: 1px; border-color: var(--border); padding: 12px; }
         .dropzone.has-file:hover { border-color: var(--border-hover); background: transparent; }
 
-        .upload-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+        .upload-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; }
         .upload-arrow {
-          font-size: 22px; color: var(--accent); font-weight: 300;
-          width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
-          border: 1px solid var(--accent-dim); border-radius: var(--radius); margin-bottom: 4px;
-          background: var(--accent-dim);
+          font-size: 20px; color: var(--text); font-weight: 300;
+          width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+          border: 1px solid var(--border); border-radius: 50%; margin-bottom: 4px;
+          background: var(--surface-2);
         }
-        .upload-text { font-size: 13px; color: var(--text); font-weight: 500; }
-        .upload-formats { font-size: 10px; color: var(--text-muted); }
+        .upload-text { font-size: 14px; color: var(--text); font-weight: 500; letter-spacing: -0.2px; }
+        .upload-formats { font-size: 11px; color: var(--text-muted); }
 
-        .upload-preview { display: flex; align-items: center; gap: 12px; }
+        .upload-preview { display: flex; align-items: center; gap: 14px; }
         .upload-thumb {
-          width: 60px; height: 60px; border-radius: 5px; object-fit: cover;
+          width: 56px; height: 56px; border-radius: 8px; object-fit: cover;
           border: 1px solid var(--border);
         }
-        .upload-name { font-size: 12px; font-weight: 600; color: var(--text); }
-        .upload-meta { font-size: 10px; color: var(--text-dim); margin-top: 2px; }
-        .upload-change { font-size: 10px; color: var(--accent); margin-top: 4px; cursor: pointer; font-weight: 500; }
+        .upload-name { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: -0.2px; }
+        .upload-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+        .upload-change { font-size: 11px; color: var(--text-dim); margin-top: 4px; cursor: pointer; font-weight: 500; text-decoration: underline; }
+        .upload-change:hover { color: var(--text); }
 
         /* ===== FORMAT LIST ===== */
         .format-list {
-          display: flex; flex-direction: column; gap: 1px;
+          display: flex; flex-direction: column; gap: 2px;
         }
         .format-row {
           display: flex; align-items: center; justify-content: space-between;
-          flex-wrap: wrap; padding: 8px 8px; border-radius: 4px;
-          transition: background 0.12s; border: 1px solid transparent;
+          flex-wrap: wrap; padding: 10px 10px; border-radius: 8px;
+          transition: all 0.15s; border: 1px solid transparent;
         }
-        .format-row:hover { background: rgba(255,255,255,0.03); }
-        .format-row.on { background: var(--accent-dim); border-color: rgba(255,107,43,0.15); }
-        .format-main { display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; }
+        .format-row:hover { background: var(--surface-2); }
+        .format-row.on { background: var(--surface-2); border-color: var(--border); }
+        .format-main { display: flex; align-items: center; gap: 12px; cursor: pointer; flex: 1; }
 
         .format-toggle {
-          width: 24px; height: 13px; border-radius: 7px;
-          background: var(--surface-3); border: 1px solid rgba(255,255,255,0.12);
+          width: 28px; height: 16px; border-radius: 8px;
+          background: var(--surface-3); border: 1px solid var(--border);
           position: relative; transition: all 0.2s; flex-shrink: 0;
         }
-        .format-toggle.on { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+        .format-toggle.on { background: var(--text); border-color: var(--text); }
         .format-toggle-dot {
-          width: 9px; height: 9px; border-radius: 50%;
-          background: var(--text-dim); position: absolute; top: 1px; left: 1px;
-          transition: all 0.2s;
+          width: 12px; height: 12px; border-radius: 50%;
+          background: #fff; position: absolute; top: 1px; left: 1px;
+          transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.15);
         }
-        .format-toggle.on .format-toggle-dot { background: #fff; left: 12px; }
+        .format-toggle.on .format-toggle-dot { left: 13px; }
 
-        .format-info { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
-        .format-name { font-size: 11px; font-weight: 500; color: var(--text); }
-        .format-spec { font-size: 10px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
-        .format-ratio { font-size: 9px; color: var(--text-muted); }
+        .format-info { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+        .format-name { font-size: 13px; font-weight: 500; color: var(--text); letter-spacing: -0.2px; }
+        .format-spec { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .format-ratio { font-size: 10px; color: var(--text-muted); }
 
         .format-actions { display: flex; align-items: center; gap: 4px; }
         .ghost-btn {
-          padding: 3px 8px; border-radius: 3px;
+          padding: 4px 10px; border-radius: 6px;
           border: 1px solid var(--border); background: transparent;
-          color: var(--text-dim); font-family: var(--mono); font-size: 9px;
-          cursor: pointer; transition: all 0.15s; letter-spacing: 0.3px;
+          color: var(--text-dim); font-family: var(--sans); font-size: 10px;
+          cursor: pointer; transition: all 0.15s; font-weight: 500;
         }
         .ghost-btn:hover { color: var(--text); border-color: var(--border-hover); background: var(--surface-2); }
-        .ghost-btn.warn { color: var(--red); border-color: rgba(255,77,106,0.25); }
+        .ghost-btn.warn { color: var(--red); border-color: rgba(220,53,69,0.2); }
         .ghost-btn.warn:hover { background: var(--red-dim); }
-        .ghost-btn.note-toggle { font-size: 11px; padding: 2px 7px; }
-        .ghost-btn.note-toggle.has-note { color: var(--accent); border-color: rgba(255,107,43,0.35); }
-        .ghost-btn.note-toggle.active { background: var(--accent-dim); color: var(--accent); border-color: rgba(255,107,43,0.35); }
+        .ghost-btn.note-toggle { font-size: 12px; padding: 3px 8px; }
+        .ghost-btn.note-toggle.has-note { color: var(--text); border-color: var(--border-hover); background: var(--surface-2); }
+        .ghost-btn.note-toggle.active { background: var(--surface-2); color: var(--text); border-color: var(--border-hover); }
 
         .banner-note-box {
-          width: 100%; padding: 6px 10px 8px; border-top: 1px solid var(--border);
+          width: 100%; padding: 8px 10px 8px; border-top: 1px solid var(--border);
         }
         .banner-note-input {
-          width: 100%; resize: vertical; padding: 6px 8px; border-radius: 4px;
-          border: 1px solid var(--border); background: var(--bg);
-          color: var(--text-dim); font-family: var(--mono); font-size: 10px; line-height: 1.5;
+          width: 100%; resize: vertical; padding: 8px 10px; border-radius: 8px;
+          border: 1px solid var(--border); background: var(--surface-2);
+          color: var(--text); font-family: var(--sans); font-size: 12px; line-height: 1.5;
           outline: none; transition: border-color 0.15s; box-sizing: border-box;
         }
-        .banner-note-input:focus { border-color: rgba(255,107,43,0.3); color: var(--text); }
-        .banner-note-input::placeholder { color: var(--text-muted); font-style: italic; }
+        .banner-note-input:focus { border-color: var(--text); }
+        .banner-note-input::placeholder { color: var(--text-muted); }
 
         .tag-custom {
-          font-size: 8px; color: var(--green); background: var(--green-dim);
-          padding: 2px 6px; border-radius: 2px; font-weight: 600;
-          text-transform: uppercase; letter-spacing: 0.8px;
+          font-size: 9px; color: var(--green); background: var(--green-dim);
+          padding: 2px 7px; border-radius: 4px; font-weight: 600;
+          text-transform: uppercase; letter-spacing: 0.5px;
         }
         .tag-mod {
-          font-size: 8px; color: var(--accent); background: var(--accent-dim);
-          padding: 2px 6px; border-radius: 2px; font-weight: 600;
-          text-transform: uppercase; letter-spacing: 0.8px;
+          font-size: 9px; color: var(--text-dim); background: var(--surface-2);
+          padding: 2px 7px; border-radius: 4px; font-weight: 600;
+          text-transform: uppercase; letter-spacing: 0.5px;
         }
 
         /* ===== NEW FORMAT ===== */
         .new-format-row {
-          display: flex; gap: 6px; margin-top: 8px; padding-top: 8px;
+          display: flex; gap: 8px; margin-top: 12px; padding-top: 12px;
           border-top: 1px solid var(--border);
         }
         .new-format-input {
-          flex: 1; padding: 6px 10px; border-radius: 4px;
-          border: 1px solid var(--border); background: var(--bg);
-          color: var(--text); font-family: var(--mono); font-size: 10px;
+          flex: 1; padding: 8px 12px; border-radius: 8px;
+          border: 1px solid var(--border); background: var(--surface-2);
+          color: var(--text); font-family: var(--sans); font-size: 12px;
           outline: none; transition: border-color 0.15s;
         }
-        .new-format-input:focus { border-color: rgba(255,107,43,0.3); }
+        .new-format-input:focus { border-color: var(--text); }
         .new-format-input::placeholder { color: var(--text-muted); }
         .new-format-btn {
-          padding: 6px 14px; border-radius: 4px; border: 1px solid var(--accent);
-          background: var(--accent-dim); color: var(--accent); font-family: var(--mono);
-          font-size: 10px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+          padding: 8px 16px; border-radius: 8px; border: 1px solid var(--text);
+          background: transparent; color: var(--text); font-family: var(--sans);
+          font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s;
           white-space: nowrap;
         }
-        .new-format-btn:hover:not(:disabled) { background: rgba(255,107,43,0.22); }
-        .new-format-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .new-format-btn:hover:not(:disabled) { background: var(--text); color: #fff; }
+        .new-format-btn:disabled { opacity: 0.2; cursor: not-allowed; }
 
         /* ===== PROMPT ===== */
-        .prompt-section { margin-top: 12px; animation: fadeIn 0.15s ease; }
+        .prompt-section { margin-top: 16px; animation: fadeIn 0.15s ease; }
         .prompt-hint {
-          font-size: 10px; color: var(--text-dim); margin-bottom: 8px; line-height: 1.6;
+          font-size: 11px; color: var(--text-dim); margin-bottom: 10px; line-height: 1.6;
         }
         .prompt-hint code {
-          color: var(--accent); background: var(--accent-dim);
-          padding: 1px 5px; border-radius: 2px; font-size: 9px; font-weight: 600;
+          color: var(--text); background: var(--surface-2);
+          padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 500;
+          font-family: var(--mono);
         }
         .prompt-editor {
-          width: 100%; background: var(--bg); border: 1px solid var(--border);
-          border-radius: 4px; color: var(--text); padding: 12px;
-          font-family: var(--mono); font-size: 10px; resize: vertical;
+          width: 100%; background: var(--surface-2); border: 1px solid var(--border);
+          border-radius: 8px; color: var(--text); padding: 14px;
+          font-family: var(--mono); font-size: 11px; resize: vertical;
           outline: none; line-height: 1.8; transition: border-color 0.15s;
         }
-        .prompt-editor:focus { border-color: rgba(255,107,43,0.3); box-shadow: 0 0 0 3px rgba(255,107,43,0.06); }
+        .prompt-editor:focus { border-color: var(--text); }
         .prompt-footer {
-          display: flex; justify-content: space-between; align-items: center; margin-top: 6px;
+          display: flex; justify-content: space-between; align-items: center; margin-top: 8px;
         }
-        .prompt-count { font-size: 9px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+        .prompt-count { font-size: 10px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
         /* ===== GENERATE BUTTON ===== */
         .gen-btn {
-          width: 100%; padding: 14px; border-radius: 8px; border: none;
-          background: var(--accent); color: #fff;
-          font-family: var(--display); font-size: 13px; font-weight: 700;
-          cursor: pointer; transition: all 0.2s; letter-spacing: -0.2px;
-          box-shadow: 0 4px 20px var(--accent-glow);
+          width: 100%; padding: 16px; border-radius: 12px; border: none;
+          background: var(--text); color: #fff;
+          font-family: var(--sans); font-size: 14px; font-weight: 600;
+          cursor: pointer; transition: all 0.25s; letter-spacing: -0.3px;
           flex-shrink: 0;
           margin-top: auto;
         }
         .gen-btn:hover:not(.off) {
           background: var(--accent-hover);
-          box-shadow: 0 6px 28px rgba(255,107,43,0.4);
           transform: translateY(-1px);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.15);
         }
-        .gen-btn:active:not(.off) { transform: translateY(0); box-shadow: 0 2px 10px var(--accent-glow); }
-        .gen-btn.off { opacity: 0.25; cursor: not-allowed; box-shadow: none; }
+        .gen-btn:active:not(.off) { transform: translateY(0); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .gen-btn.off { opacity: 0.15; cursor: not-allowed; }
         .gen-inner { display: flex; align-items: center; justify-content: center; gap: 10px; }
         .gen-arrow { font-size: 16px; font-weight: 300; }
 
         .gen-spinner {
-          width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3);
+          width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3);
           border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite;
         }
 
         /* ===== CANVAS / RESULTS AREA ===== */
         .canvas-area {
-          background: var(--surface-2);
-          border: 1px solid rgba(255,255,255,0.07);
-          border-radius: 8px; padding: 24px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 12px; padding: 32px;
           display: flex; flex-direction: column;
           min-height: 0; overflow-y: auto;
-          background-image: radial-gradient(circle at 50% 50%, rgba(255,107,43,0.02) 0%, transparent 70%);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.04);
         }
 
         /* Progress */
-        .progress-block { margin-bottom: 24px; animation: fadeIn 0.2s ease; }
+        .progress-block { margin-bottom: 32px; animation: fadeIn 0.2s ease; }
         .progress-top {
           display: flex; justify-content: space-between; align-items: baseline;
-          margin-bottom: 12px;
+          margin-bottom: 16px;
         }
         .progress-title {
-          font-family: var(--mono); font-size: 10px; font-weight: 500;
-          text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-dim);
+          font-family: var(--sans); font-size: 11px; font-weight: 600;
+          text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim);
         }
         .progress-frac {
-          font-family: var(--display); font-size: 24px; font-weight: 700;
-          color: var(--accent); letter-spacing: -1px;
+          font-family: var(--display); font-size: 28px; font-weight: 700;
+          color: var(--text); letter-spacing: -1px;
         }
-        .progress-of { color: var(--text-dim); font-weight: 300; font-size: 18px; }
+        .progress-of { color: var(--text-muted); font-weight: 300; font-size: 20px; }
         .progress-track {
           height: 3px; background: var(--surface-3); border-radius: 2px;
-          margin-bottom: 14px; overflow: hidden;
+          margin-bottom: 16px; overflow: hidden;
         }
         .progress-fill {
-          height: 100%; background: var(--accent); border-radius: 2px;
+          height: 100%; background: var(--text); border-radius: 2px;
           transition: width 0.5s ease;
-          box-shadow: 0 0 8px var(--accent-glow);
         }
-        .progress-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+        .progress-pills { display: flex; flex-wrap: wrap; gap: 6px; max-height: 200px; overflow-y: auto; }
         .pill {
-          display: flex; align-items: center; gap: 6px; padding: 5px 11px;
-          background: var(--surface-2); border-radius: 4px; font-size: 10px;
+          display: flex; align-items: center; gap: 6px; padding: 6px 12px;
+          background: var(--surface-2); border-radius: 6px; font-size: 11px;
           border: 1px solid var(--border);
         }
         .pill-dot {
           width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
         }
-        .pill-dot.regenerating, .pill-dot.compositing { background: var(--accent); animation: pulse 1.2s infinite; box-shadow: 0 0 6px var(--accent-glow); }
-        .pill-dot.done { background: var(--green); box-shadow: 0 0 6px rgba(45,232,138,0.4); }
+        .pill-dot.regenerating, .pill-dot.compositing { background: var(--text); animation: pulse 1.2s infinite; }
+        .pill-dot.done { background: var(--green); }
         .pill-dot.error { background: var(--red); }
         .pill-name { color: var(--text); font-weight: 500; }
         .pill-status { color: var(--text-dim); }
@@ -913,115 +1016,217 @@ export default function BannerStudio() {
         /* Tabs + Results header */
         .results-bar {
           display: flex; justify-content: space-between; align-items: center;
-          margin-bottom: 18px;
+          margin-bottom: 24px;
         }
         .tab-group { display: flex; gap: 0; }
         .tab {
-          padding: 7px 16px; border: 1px solid var(--border); border-right: none;
-          background: transparent; color: var(--text-dim); font-family: var(--mono);
-          font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.12s;
-          letter-spacing: 0.3px;
+          padding: 8px 18px; border: 1px solid var(--border); border-right: none;
+          background: transparent; color: var(--text-dim); font-family: var(--sans);
+          font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s;
         }
-        .tab:first-child { border-radius: var(--radius) 0 0 var(--radius); }
-        .tab:last-child { border-right: 1px solid var(--border); border-radius: 0 var(--radius) var(--radius) 0; }
-        .tab.active { background: var(--surface-2); color: var(--accent); border-color: rgba(255,107,43,0.2); }
-        .tab:hover:not(.active) { color: var(--text); background: rgba(255,255,255,0.02); }
-        .results-n { font-size: 10px; color: var(--text-dim); }
+        .tab:first-child { border-radius: 8px 0 0 8px; }
+        .tab:last-child { border-right: 1px solid var(--border); border-radius: 0 8px 8px 0; }
+        .tab.active { background: var(--text); color: #fff; border-color: var(--text); }
+        .tab.active + .tab { border-left-color: var(--text); }
+        .tab:hover:not(.active) { color: var(--text); background: var(--surface-2); }
+        .results-n { font-size: 11px; color: var(--text-dim); }
+        .results-bar-right { display: flex; align-items: center; gap: 12px; }
+        .dl-fav-btn {
+          padding: 6px 14px; border-radius: 6px; font-family: var(--sans);
+          font-size: 11px; font-weight: 600; background: var(--green-dim);
+          color: var(--green); border: 1px solid rgba(26,135,84,0.15);
+          cursor: pointer; transition: all 0.15s;
+        }
+        .dl-fav-btn:hover { background: rgba(26,135,84,0.12); border-color: rgba(26,135,84,0.3); }
 
-        /* Results Grid */
-        .results-grid {
-          display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-          gap: 12px; animation: fadeIn 0.3s ease;
+        /* Variations Slider */
+        .variations-row {
+          display: flex; align-items: center; gap: 14px;
         }
+        .variations-slider {
+          flex: 1; height: 3px; -webkit-appearance: none; appearance: none;
+          background: var(--surface-3); border-radius: 2px; outline: none;
+          cursor: pointer;
+        }
+        .variations-slider::-webkit-slider-thumb {
+          -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+          background: var(--text); cursor: pointer; border: 3px solid var(--surface);
+          box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        }
+        .variations-count {
+          font-family: var(--display); font-size: 28px; font-weight: 700;
+          color: var(--text); min-width: 32px; text-align: center;
+          letter-spacing: -1px;
+        }
+        .variations-hint {
+          font-size: 11px; color: var(--text-muted); margin-top: 10px;
+          letter-spacing: -0.1px;
+        }
+
+        /* Grouped Results */
+        .results-grouped {
+          display: flex; flex-direction: column; gap: 24px;
+          animation: fadeIn 0.3s ease;
+        }
+        .format-group {
+          background: var(--surface-2); border: 1px solid var(--border);
+          border-radius: 12px; padding: 20px; transition: all 0.2s;
+        }
+        .format-group:hover { border-color: var(--border-hover); }
+        .format-group-header {
+          display: flex; align-items: center; gap: 12px;
+          margin-bottom: 16px; padding-bottom: 12px;
+          border-bottom: 1px solid var(--border);
+        }
+        .format-group-name {
+          font-family: var(--sans); font-size: 15px; font-weight: 600;
+          color: var(--text); letter-spacing: -0.3px;
+        }
+        .format-group-dims {
+          font-size: 11px; color: var(--text-muted);
+          font-variant-numeric: tabular-nums;
+        }
+        .format-group-count {
+          font-size: 10px; color: var(--text-dim); background: var(--surface);
+          padding: 3px 10px; border-radius: 12px; font-weight: 600;
+          border: 1px solid var(--border);
+        }
+        .variation-row {
+          display: flex; gap: 12px; overflow-x: auto;
+          padding-bottom: 4px;
+        }
+        .variation-row.single { justify-content: flex-start; }
+        .variation-row .result-card {
+          min-width: 220px; max-width: 300px; flex-shrink: 0;
+        }
+        .variation-row.single .result-card { min-width: 260px; }
+
         .result-card {
-          background: var(--bg); border: 1px solid var(--border);
-          border-radius: var(--radius); overflow: hidden; cursor: pointer;
-          transition: all 0.15s;
+          background: var(--surface); border: 1px solid var(--border);
+          border-radius: 10px; overflow: hidden; cursor: pointer;
+          transition: all 0.2s;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.04);
         }
-        .result-card:hover { border-color: rgba(255,107,43,0.3); box-shadow: 0 0 20px rgba(255,107,43,0.06); }
-        .result-img-wrap { padding: 10px; background: var(--bg); }
+        .result-card:hover { border-color: var(--border-hover); box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-1px); }
+        .result-card.favorited { border-color: #d4a017; box-shadow: 0 0 0 1px #d4a017, 0 4px 16px rgba(212,160,23,0.12); }
+        .result-img-wrap { padding: 12px; background: var(--surface); position: relative; }
         .result-img {
           width: 100%; height: 170px; object-fit: contain; display: block;
-          border-radius: 3px;
+          border-radius: 6px;
+        }
+        .variation-badge {
+          position: absolute; top: 16px; left: 16px;
+          font-size: 10px; font-weight: 600; color: #fff;
+          background: var(--text); padding: 3px 8px; border-radius: 5px;
+          letter-spacing: 0.3px; font-family: var(--sans);
         }
         .result-footer {
           display: flex; align-items: center; justify-content: space-between;
-          padding: 9px 12px; border-top: 1px solid var(--border);
+          padding: 10px 14px; border-top: 1px solid var(--border);
         }
         .result-info { display: flex; flex-direction: column; }
-        .result-name { font-size: 11px; font-weight: 600; color: var(--text); }
-        .result-dims { font-size: 9px; color: var(--text-dim); margin-top: 2px; font-variant-numeric: tabular-nums; }
+        .result-name { font-size: 12px; font-weight: 600; color: var(--text); letter-spacing: -0.2px; }
+        .result-dims { font-size: 10px; color: var(--text-muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+        .result-actions { display: flex; align-items: center; gap: 6px; }
+
+        .fav-btn {
+          background: none; border: 1px solid var(--border); border-radius: 6px;
+          color: var(--text-muted); font-size: 14px; cursor: pointer;
+          padding: 4px 8px; transition: all 0.15s; line-height: 1;
+        }
+        .fav-btn:hover { color: #d4a017; border-color: rgba(212,160,23,0.3); }
+        .fav-btn.active { color: #d4a017; border-color: #d4a017; background: rgba(212,160,23,0.06); }
 
         .dl-btn {
           display: inline-flex; align-items: center; gap: 5px;
-          padding: 5px 12px; border-radius: 4px; font-family: var(--mono);
-          font-size: 10px; font-weight: 600; background: var(--accent-dim);
-          color: var(--accent); text-decoration: none; transition: all 0.15s;
-          border: 1px solid rgba(255,107,43,0.2);
+          padding: 6px 14px; border-radius: 6px; font-family: var(--sans);
+          font-size: 11px; font-weight: 600; background: var(--text);
+          color: #fff; text-decoration: none; transition: all 0.15s;
+          border: none;
         }
-        .dl-btn:hover { background: rgba(255,107,43,0.22); border-color: rgba(255,107,43,0.4); }
+        .dl-btn:hover { background: var(--accent-hover); }
 
         /* Empty state */
         .empty {
           flex: 1; display: flex; flex-direction: column;
-          align-items: center; justify-content: center; text-align: center; gap: 14px;
+          align-items: center; justify-content: center; text-align: center; gap: 16px;
         }
         .empty-graphic {
-          width: 72px; height: 72px; border-radius: 16px;
+          width: 80px; height: 80px; border-radius: 20px;
           background: var(--surface-2); border: 1px solid var(--border);
           display: flex; align-items: center; justify-content: center;
-          color: var(--text-dim); opacity: 0.5;
+          color: var(--text-muted); opacity: 0.6;
         }
         .empty-text {
-          font-family: var(--display); font-size: 20px; font-weight: 600;
+          font-family: var(--sans); font-size: 22px; font-weight: 600;
           color: var(--text-dim); letter-spacing: -0.5px;
         }
         .empty-sub {
-          font-size: 12px; color: var(--text-muted); line-height: 1.6;
-          max-width: 260px;
+          font-size: 13px; color: var(--text-muted); line-height: 1.7;
+          max-width: 280px;
         }
         .empty-steps {
-          display: flex; gap: 8px; margin-top: 4px;
+          display: flex; gap: 8px; margin-top: 8px;
         }
         .empty-step {
-          display: flex; align-items: center; gap: 6px;
-          font-size: 10px; color: var(--text-muted);
+          display: flex; align-items: center; gap: 7px;
+          font-size: 11px; color: var(--text-dim);
           background: var(--surface-2); border: 1px solid var(--border);
-          padding: 5px 10px; border-radius: 20px;
+          padding: 6px 12px; border-radius: 20px;
         }
         .empty-step-num {
-          width: 16px; height: 16px; border-radius: 50%;
-          background: var(--surface-3); color: var(--text-dim);
+          width: 18px; height: 18px; border-radius: 50%;
+          background: var(--text); color: #fff;
           display: flex; align-items: center; justify-content: center;
-          font-size: 9px; font-weight: 700; flex-shrink: 0;
+          font-size: 10px; font-weight: 700; flex-shrink: 0;
         }
 
         /* ===== LIGHTBOX ===== */
         .lightbox {
-          position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.92);
+          position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.85);
           display: flex; align-items: center; justify-content: center;
-          animation: fadeIn 0.15s ease; padding: 40px;
-          backdrop-filter: blur(4px);
+          animation: fadeIn 0.2s ease; padding: 40px;
+          backdrop-filter: blur(12px);
         }
         .lightbox-body {
           max-width: 90vw; max-height: 90vh; position: relative;
-          display: flex; flex-direction: column; align-items: center; gap: 14px;
+          display: flex; flex-direction: column; align-items: center; gap: 16px;
         }
         .lightbox-x {
-          position: absolute; top: -36px; right: 0; background: none; border: none;
-          color: var(--text-dim); cursor: pointer; font-size: 24px; font-weight: 300;
-          font-family: var(--mono); transition: color 0.15s;
+          position: absolute; top: -40px; right: 0; background: rgba(255,255,255,0.1); border: none;
+          color: #fff; cursor: pointer; font-size: 18px; font-weight: 400;
+          font-family: var(--sans); transition: all 0.15s;
+          width: 32px; height: 32px; border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
         }
-        .lightbox-x:hover { color: var(--text); }
+        .lightbox-x:hover { background: rgba(255,255,255,0.2); }
         .lightbox-img {
-          max-width: 100%; max-height: 74vh; object-fit: contain; border-radius: 5px;
-          border: 1px solid var(--border);
+          max-width: 100%; max-height: 74vh; object-fit: contain; border-radius: 8px;
+          box-shadow: 0 8px 40px rgba(0,0,0,0.3);
         }
         .lightbox-bar {
-          display: flex; align-items: center; gap: 16px; font-size: 12px;
+          display: flex; align-items: center; gap: 16px; font-size: 13px; color: #fff;
         }
-        .lightbox-name { font-weight: 600; color: var(--text); }
-        .lightbox-dims { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+        .lightbox-nav {
+          position: absolute; top: 50%; transform: translateY(-50%);
+          background: rgba(255,255,255,0.1); border: none;
+          color: #fff; font-size: 24px; font-weight: 300;
+          width: 44px; height: 64px; border-radius: 8px;
+          cursor: pointer; display: flex; align-items: center; justify-content: center;
+          transition: all 0.15s; font-family: var(--sans); z-index: 10;
+          backdrop-filter: blur(8px);
+        }
+        .lightbox-nav:hover { background: rgba(255,255,255,0.2); }
+        .lightbox-prev { left: -60px; }
+        .lightbox-next { right: -60px; }
+        .lightbox-name { font-weight: 600; color: #fff; }
+        .lightbox-pos { font-size: 11px; color: rgba(255,255,255,0.5); }
+        .lightbox-dims { color: rgba(255,255,255,0.6); font-variant-numeric: tabular-nums; }
+        .lightbox-fav { font-size: 18px; color: rgba(255,255,255,0.8); border-color: rgba(255,255,255,0.2); }
+        .lightbox-fav.active { color: #ffc832; border-color: #ffc832; }
+
+        .lightbox .dl-btn { background: rgba(255,255,255,0.15); color: #fff; border: none; backdrop-filter: blur(4px); }
+        .lightbox .dl-btn:hover { background: rgba(255,255,255,0.25); }
 
         /* ===== ANIMATIONS ===== */
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
@@ -1032,19 +1237,21 @@ export default function BannerStudio() {
         @media (max-width: 900px) {
           .workspace { grid-template-columns: 1fr; }
           .canvas-area { min-height: 300px; }
+          .main { padding: 16px; }
+          .header { padding: 0 16px; }
         }
 
         /* Focus */
-        :focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+        :focus-visible { outline: 2px solid var(--text); outline-offset: 2px; border-radius: 4px; }
 
         /* Selection */
-        ::selection { background: rgba(255,107,43,0.25); color: var(--text); }
+        ::selection { background: rgba(0,0,0,0.12); color: var(--text); }
 
         /* Scrollbar */
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 2px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.25); }
       `}</style>
     </div>
   )

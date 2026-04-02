@@ -1,0 +1,33 @@
+{
+  "artZone": {
+    "x": 22,
+    "y": 19,
+    "width": 729,
+    "height": 215
+  },
+  "label": "more templates",
+  "width": 1004,
+  "height": 254,
+  "userCreated": true,
+  "frameAnalysis": {
+    "top": {
+      "height_px": 19,
+      "contains": "solid blue border with a very thin black top edge"
+    },
+    "bottom": {
+      "height_px": 20,
+      "contains": "solid blue border with a very thin black bottom edge"
+    },
+    "left": {
+      "width_px": 22,
+      "contains": "solid blue border with a very thin black left edge"
+    },
+    "right": {
+      "width_px": 253,
+      "contains": "solid blue sidebar containing the white 'prime' text and smile arrow logo, with a very thin black right edge"
+    },
+    "corners": "The entire right-side area, occupying roughly the right quarter of the frame, is a vertical branding panel featuring the white Amazon Prime logo (prime wordmark and smile arrow).",
+    "instructions": "Place the main hero subject of your artwork within the central-left area, making it the dominant feature. Place any titles or key promotional text in the top 20% or central-left area of the cutout. Avoid extending important content too close to the very thin blue-black borders on the top, bottom, and left, as well as the thick solid blue branded sidebar on the right."
+  },
+  "frameInstructions": "Place the main hero subject of your artwork within the central-left area, making it the dominant feature. Place any titles or key promotional text in the top 20% or central-left area of the cutout. Avoid extending important content too close to the very thin blue-black borders on the top, bottom, and left, as well as the thick solid blue branded sidebar on the right."
+}

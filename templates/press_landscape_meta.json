@@ -8,22 +8,22 @@
   "frameAnalysis": {
     "top": {
       "height_px": 62,
-      "contains": "A solid light-blue border spanning the full width of the banner."
+      "contains": "thin frame edge"
     },
     "bottom": {
       "height_px": 69,
-      "contains": "A solid light-blue border spanning the full width of the banner."
+      "contains": "thin frame edge"
     },
     "left": {
       "width_px": 66,
-      "contains": "A light-blue border containing a thin magenta vertical strip centered within it. This strip runs the height of the banner and has text '3.5% OF WIDTH OF AD GIVES BOARDER SIZE' reading from bottom to top in a white, bold, sans-serif font."
+      "contains": "vertical text '3.5% OF WIDTH OF AD GIVES BOARDER SIZE' on pink background"
     },
     "right": {
       "width_px": 450,
-      "contains": "A large, multi-element branding panel. It features a solid yellow rectangular bar at the top containing centered black text 'CONTAINER IS 25% OF WIDTH OF AD'. Below this is the Amazon Prime logo (white text and blue arrow) on a light-blue background, and below the logo is a small magenta text block with white text 'LOGO IS 60% WIDTH OF CONTAINER'."
+      "contains": "A wide vertical frame containing: at top, yellow box with text 'CONTAINER IS 25% OF WIDTH OF AD'; below, Amazon Prime logo and white text, and a pink box below that with text 'LOGO IS 60% WIDTH OF CONTAINER'"
     },
-    "corners": "The Prime Video logo and associated text blocks occupy the entire right side from top to bottom, with the primary logo and text block in the mid-to-lower right area. The thin magenta border with text runs vertically down the left side.",
-    "instructions": "Place the main hero subject slightly left of center, focusing on a safe area around [350, 450] within the 1284×1069 art zone, to avoid the heavy right-side branding. Keep the top 100 pixels and the entire left edge of the artwork clear of any critical details or title text to ensure they aren't obscured or compete with the template's borders."
+    "corners": "The yellow information box is in the upper right, and the Amazon Prime logo and red instruction box are centrally placed vertically along the right-hand side.",
+    "instructions": "Due to a very wide right-hand border and vertical text on the left, keep the central image and any potential overlaid titles contained within the central vertical portion of the image, primarily the middle 60%. The top and bottom 10% should be free of critical visual elements and titles, allowing only for background textures, as these areas are close to the frame edge. The hero subject or a central product should be perfectly centered horizontally and vertically within the visible area to maximize visibility."
   },
-  "frameInstructions": "Place the main hero subject slightly left of center, focusing on a safe area around [350, 450] within the 1284×1069 art zone, to avoid the heavy right-side branding. Keep the top 100 pixels and the entire left edge of the artwork clear of any critical details or title text to ensure they aren't obscured or compete with the template's borders."
+  "frameInstructions": "Due to a very wide right-hand border and vertical text on the left, keep the central image and any potential overlaid titles contained within the central vertical portion of the image, primarily the middle 60%. The top and bottom 10% should be free of critical visual elements and titles, allowing only for background textures, as these areas are close to the frame edge. The hero subject or a central product should be perfectly centered horizontally and vertically within the visible area to maximize visibility."
 }

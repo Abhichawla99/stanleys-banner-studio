@@ -1,33 +1,8 @@
 {
   "artZone": {
-    "x": 19,
-    "y": 167,
-    "width": 432,
-    "height": 518
-  },
-  "label": "test",
-  "width": 472,
-  "height": 712,
-  "userCreated": true,
-  "frameAnalysis": {
-    "top": {
-      "height_px": 167,
-      "contains": "A bright blue header containing the white 'prime' logo with its smile-arrow. Below the logo is a small horizontal pink text container with centered text. Along the top edge is a yellow text bar."
-    },
-    "bottom": {
-      "height_px": 27,
-      "contains": "A bright blue border strip, which is part of the overall background color."
-    },
-    "left": {
-      "width_px": 19,
-      "contains": "A vertical pink text container running most of the height, containing white vertical text. This is set within the blue border strip."
-    },
-    "right": {
-      "width_px": 21,
-      "contains": "A vertical yellow text container running down from the top edge, containing black vertical text. This is set within the blue border strip."
-    },
-    "corners": "The overall layout is quite boxy, with distinct text containers at the top and bottom. The primary Prime logo and depth guide are centered in the top blue area. Text boxes align with the top-left, top-right, and left-side edges.",
-    "instructions": "Place the main hero subject of your artwork within the central, unobstructed area of the 432×518 art zone. Avoid placing any critical details or text near the edges, especially the top (where it might clip with the main header elements) and the left (where the vertical pink text border sits). Position any primary title or branding text for the artwork around x=216, y=260 relative to the art zone to ensure it's clearly visible."
-  },
-  "frameInstructions": "Place the main hero subject of your artwork within the central, unobstructed area of the 432×518 art zone. Avoid placing any critical details or text near the edges, especially the top (where it might clip with the main header elements) and the left (where the vertical pink text border sits). Position any primary title or branding text for the artwork around x=216, y=260 relative to the art zone to ensure it's clearly visible."
+    "x": 12,
+    "y": 55,
+    "width": 341,
+    "height": 600
+  }
 }

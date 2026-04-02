@@ -8,22 +8,22 @@
   "frameAnalysis": {
     "top": {
       "height_px": 62,
-      "contains": "solid blue background"
+      "contains": "A solid blue border and frame edge, but note the pink instructions text bar is near the top-right, just outside this exact top border area."
     },
     "bottom": {
       "height_px": 67,
-      "contains": "solid blue background"
+      "contains": "A solid blue border and frame edge."
     },
     "left": {
       "width_px": 60,
-      "contains": "solid blue background with a pink bar containing vertical text"
+      "contains": "A solid blue border, featuring a vertical pink bar with text: '2.5% OF WIDTH OF AD GIVES BORDER SIZE' which is mostly aligned with this border."
     },
     "right": {
       "width_px": 603,
-      "contains": "solid blue background with a red bar containing text, a large Amazon Prime logo with smile arrow, and a yellow bar containing text"
+      "contains": "A large blue container. It contains a magenta instruction box 'LOGO IS 60% OF WIDTH OF CONTAINER', a white Amazon Prime logo (prime text + smile arrow), and a yellow instruction box 'CONTAINER IS 25% OF WIDTH OF AD'."
     },
-    "corners": "All corners of the inner art zone are bordered by solid blue frame elements. There is no branding within the 1737x1071 art zone itself.",
-    "instructions": "Place the main hero subject and critical text within the central area of the 1737x1071 art zone. The 60px left border and 603px right border, which includes the large Amazon Prime logo, will overlay the artwork. Avoid placing essential elements in the top 62px and bottom 67px, which are solid blue frame areas."
+    "corners": "The entire right-hand side is a substantial branding block, featuring the prime logo, instructions text (magenta and yellow bars), and a lot of solid blue, completely obscuring the right quarter of the frame.",
+    "instructions": "When generating artwork, avoid placing any critical subjects, text, or faces in the right-hand quarter of the frame, as it will be completely covered by branding and text. This right quarter is effectively a dead zone for key art content. Focus the primary hero element (e.g., character or central action) in the left and central thirds. Position any main titles, sub-titles, or taglines within the top 20% and left half to ensure full visibility, while allowing the central background to remain largely uncluttered."
   },
-  "frameInstructions": "Place the main hero subject and critical text within the central area of the 1737x1071 art zone. The 60px left border and 603px right border, which includes the large Amazon Prime logo, will overlay the artwork. Avoid placing essential elements in the top 62px and bottom 67px, which are solid blue frame areas."
+  "frameInstructions": "When generating artwork, avoid placing any critical subjects, text, or faces in the right-hand quarter of the frame, as it will be completely covered by branding and text. This right quarter is effectively a dead zone for key art content. Focus the primary hero element (e.g., character or central action) in the left and central thirds. Position any main titles, sub-titles, or taglines within the top 20% and left half to ensure full visibility, while allowing the central background to remain largely uncluttered."
 }

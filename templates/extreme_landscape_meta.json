@@ -8,22 +8,22 @@
   "frameAnalysis": {
     "top": {
       "height_px": 79,
-      "contains": "solid blue bar with a thin, dark top edge."
+      "contains": "blue header bar with a small pink text label in the top-right corner, and a blue border edge."
     },
     "bottom": {
       "height_px": 52,
-      "contains": "solid blue bar with a thin, dark bottom edge."
+      "contains": "blue footer bar with a yellow horizontal bar along the bottom edge containing a text label, and a dark blue border edge."
     },
     "left": {
       "width_px": 36,
-      "contains": "thin solid blue vertical bar, with a dark blue vertical line on the left side and a magenta vertical line on the right side."
+      "contains": "blue vertical bar with a pink text label oriented vertically, and a dark blue border edge."
     },
     "right": {
       "width_px": 802,
-      "contains": "solid blue container with a yellow text bar and branding. The text bar at the bottom contains 'CONTAINER IS 25% OF WIDTH OF THE POSTER'. Above it is the vertical 'prime' logo and swoosh. The text at the top, inside a magenta box, reads 'LOGO IS 60% OF DEPTH OF THE CONTAINER'."
+      "contains": "large, prominent vertical blue container panel that holds a white Prime logo with smile arrow."
     },
-    "corners": "Large complex branding container on the entire right side.",
-    "instructions": "Place the main hero subject for the 2362x669 artwork centrally or slightly to the left to ensure it is not obscured by the extensive right-side frame. Any main title text should be located in the top-left or top-center of the art zone, avoiding the blue frame completely. The composition must strictly avoid placing any crucial content or text in the right-most 802 pixels of the overall canvas, which is entirely occupied by the frame."
+    "corners": "The vertical Prime logo (text 'prime' above the smile) is prominently placed within the blue panel in the right 25% of the frame. Vertical text branding is located in the top-left corner and a vertical text label is in the top-right corner.",
+    "instructions": "Place the main subject and title for the artwork within the central 70% of the art zone. Avoid the far-left and far-right fifths of the image, as this area will be overlaid by substantial branding panels, especially the large right panel. Ensure the bottom quarter of the composition is clear of critical detail."
   },
-  "frameInstructions": "Place the main hero subject for the 2362x669 artwork centrally or slightly to the left to ensure it is not obscured by the extensive right-side frame. Any main title text should be located in the top-left or top-center of the art zone, avoiding the blue frame completely. The composition must strictly avoid placing any crucial content or text in the right-most 802 pixels of the overall canvas, which is entirely occupied by the frame."
+  "frameInstructions": "Place the main subject and title for the artwork within the central 70% of the art zone. Avoid the far-left and far-right fifths of the image, as this area will be overlaid by substantial branding panels, especially the large right panel. Ensure the bottom quarter of the composition is clear of critical detail."
 }
