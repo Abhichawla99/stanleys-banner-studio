@@ -239,29 +239,27 @@ export default function Dashboard() {
       )}
 
       <style>{`
-        :root {
-          --bg: #0b0b0e;
-          --surface: #111116;
-          --surface-2: #18181f;
-          --surface-3: #1f1f28;
-          --border: rgba(255,255,255,0.08);
-          --border-hover: rgba(255,255,255,0.15);
-          --text: #f0f0f5;
-          --text-dim: #9090a0;
-          --text-muted: #50505e;
-          --accent: #ff6b2b;
-          --accent-dim: rgba(255,107,43,0.14);
-          --accent-hover: #ff7f45;
-          --accent-glow: rgba(255,107,43,0.25);
-          --mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
-          --display: 'Space Grotesk', -apple-system, sans-serif;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
 
         .dash {
-          font-family: var(--display);
+          --bg: #fafafa;
+          --surface: #ffffff;
+          --surface-2: #f5f5f5;
+          --border: #e8e8e8;
+          --border-hover: #d0d0d0;
+          --text: #1a1a1a;
+          --text-dim: #6b6b6b;
+          --text-muted: #a0a0a0;
+          --accent: #1a1a1a;
+          --accent-hover: #333;
+          --font: 'Inter', -apple-system, sans-serif;
+          --display: 'DM Sans', 'Inter', -apple-system, sans-serif;
+
+          font-family: var(--font);
           background: var(--bg);
           color: var(--text);
           min-height: 100vh;
+          -webkit-font-smoothing: antialiased;
         }
 
         .dash-header {
@@ -271,38 +269,38 @@ export default function Dashboard() {
         }
         .dash-brand { display: flex; align-items: center; gap: 14px; }
         .dash-logo {
-          width: 36px; height: 36px; border-radius: 8px; background: var(--accent);
+          width: 38px; height: 38px; border-radius: 50%; background: var(--accent);
           display: flex; align-items: center; justify-content: center;
           font-weight: 700; font-size: 16px; color: #fff;
-          box-shadow: 0 0 20px var(--accent-glow);
+          font-family: 'DM Sans', serif; font-style: italic;
         }
-        .dash-title { font-weight: 700; font-size: 16px; letter-spacing: -0.5px; }
-        .dash-subtitle { font-size: 11px; color: var(--text-dim); margin-top: -1px; font-family: var(--mono); }
+        .dash-title { font-family: var(--display); font-weight: 700; font-size: 17px; letter-spacing: -0.5px; }
+        .dash-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 1px; letter-spacing: 0.02em; }
         .dash-actions { display: flex; gap: 10px; }
         .dash-new-btn {
-          padding: 9px 20px; border-radius: 6px; border: none;
-          background: var(--accent); color: #fff; font-family: var(--display);
+          padding: 9px 22px; border-radius: 8px; border: none;
+          background: var(--accent); color: #fff; font-family: var(--font);
           font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
-          box-shadow: 0 2px 12px var(--accent-glow);
         }
-        .dash-new-btn:hover { background: var(--accent-hover); box-shadow: 0 4px 20px rgba(255,107,43,0.4); }
+        .dash-new-btn:hover { background: var(--accent-hover); }
 
         .dash-main { max-width: 1200px; margin: 0 auto; padding: 32px; }
 
         /* Stats */
-        .dash-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 40px; }
+        .dash-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 44px; }
         .stat-card {
-          background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
-          padding: 20px; transition: border-color 0.15s;
+          background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+          padding: 22px 24px; transition: all 0.2s;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.04);
         }
-        .stat-card:hover { border-color: var(--border-hover); }
+        .stat-card:hover { border-color: var(--border-hover); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
         .stat-value {
-          font-family: var(--display); font-size: 32px; font-weight: 700;
-          letter-spacing: -1px; color: var(--text);
+          font-family: var(--display); font-size: 34px; font-weight: 700;
+          letter-spacing: -1.5px; color: var(--text);
         }
         .stat-label {
-          font-family: var(--mono); font-size: 10px; text-transform: uppercase;
-          letter-spacing: 1.5px; color: var(--text-muted); margin-top: 4px;
+          font-size: 11px; text-transform: uppercase;
+          letter-spacing: 1.5px; color: var(--text-muted); margin-top: 4px; font-weight: 500;
         }
 
         /* Section */
@@ -311,29 +309,31 @@ export default function Dashboard() {
           margin-bottom: 20px;
         }
         .dash-section-title {
-          font-size: 18px; font-weight: 600; letter-spacing: -0.5px; margin: 0;
+          font-family: var(--display); font-size: 20px; font-weight: 700; letter-spacing: -0.5px; margin: 0;
         }
-        .dash-section-count { font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
+        .dash-section-count { font-size: 12px; color: var(--text-muted); }
 
         /* Instance Grid */
         .dash-grid {
           display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;
         }
         .inst-card {
-          background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+          background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
           padding: 24px; cursor: pointer; transition: all 0.2s; position: relative;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.04);
         }
-        .inst-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+        .inst-card:hover { border-color: var(--border-hover); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
         .inst-card.empty {
           border-style: dashed; display: flex; flex-direction: column;
           align-items: center; justify-content: center; text-align: center; min-height: 200px;
+          border-color: var(--border-hover);
         }
-        .inst-card.empty:hover { border-color: var(--accent); background: var(--accent-dim); }
+        .inst-card.empty:hover { border-color: var(--accent); background: #f8f8f8; }
         .empty-plus { font-size: 36px; color: var(--text-muted); font-weight: 300; margin-bottom: 8px; }
 
         .inst-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
         .inst-icon {
-          width: 44px; height: 44px; border-radius: 10px;
+          width: 44px; height: 44px; border-radius: 12px;
           display: flex; align-items: center; justify-content: center;
           font-weight: 700; font-size: 20px; color: #fff;
         }
@@ -342,116 +342,121 @@ export default function Dashboard() {
           cursor: pointer; opacity: 0; transition: all 0.15s; padding: 4px;
         }
         .inst-card:hover .inst-delete { opacity: 1; }
-        .inst-delete:hover { color: #ff4d6a; }
+        .inst-delete:hover { color: #e53e3e; }
 
-        .inst-name { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; margin-bottom: 6px; }
-        .inst-desc { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin-bottom: 16px; }
+        .inst-name { font-family: var(--display); font-size: 16px; font-weight: 600; letter-spacing: -0.3px; margin-bottom: 6px; }
+        .inst-desc { font-size: 13px; color: var(--text-dim); line-height: 1.5; margin-bottom: 16px; }
         .inst-meta { display: flex; gap: 16px; margin-bottom: 16px; align-items: center; }
         .inst-meta-item {
-          font-family: var(--mono); font-size: 10px; color: var(--text-muted);
+          font-size: 11px; color: var(--text-muted);
           display: flex; align-items: center; gap: 5px;
         }
 
         .inst-type-badge {
-          font-family: var(--mono); font-size: 10px; padding: 3px 10px;
-          border-radius: 4px; display: inline-flex; align-items: center; gap: 5px;
+          font-size: 11px; padding: 3px 10px; font-weight: 500;
+          border-radius: 6px; display: inline-flex; align-items: center; gap: 5px;
         }
         .inst-type-badge[data-type="banner-studio"] {
-          background: rgba(255,107,43,0.12); color: #ff8f5c;
+          background: #fef3e2; color: #b45309;
         }
         .inst-type-badge[data-type="workflow-builder"] {
-          background: rgba(124,111,247,0.12); color: #9b8fff;
+          background: #ede9fe; color: #6d28d9;
         }
 
         .inst-actions-row { display: flex; gap: 8px; }
         .inst-action {
-          flex: 1; padding: 8px 12px; border-radius: 5px; border: 1px solid var(--border);
-          background: transparent; color: var(--text-dim); font-family: var(--mono);
-          font-size: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+          flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);
+          background: transparent; color: var(--text-dim);
+          font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+          font-family: var(--font);
         }
         .inst-action:hover { color: var(--text); border-color: var(--border-hover); background: var(--surface-2); }
         .inst-action.primary {
-          background: var(--accent-dim); color: var(--accent); border-color: rgba(255,107,43,0.2);
+          background: var(--accent); color: #fff; border-color: var(--accent);
         }
-        .inst-action.primary:hover { background: rgba(255,107,43,0.22); }
+        .inst-action.primary:hover { background: var(--accent-hover); }
 
         /* Quick Access */
-        .quick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+        .quick-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
         .quick-card {
-          background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
-          padding: 20px; cursor: pointer; transition: all 0.2s; position: relative;
+          background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+          padding: 22px; cursor: pointer; transition: all 0.2s; position: relative;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.04);
         }
-        .quick-card:hover:not(.disabled) { border-color: var(--accent); background: var(--accent-dim); }
+        .quick-card:hover:not(.disabled) { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
         .quick-card.disabled { opacity: 0.5; cursor: default; }
-        .quick-icon { font-size: 24px; margin-bottom: 10px; }
-        .quick-label { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
-        .quick-desc { font-size: 11px; color: var(--text-dim); }
+        .quick-icon { font-size: 24px; margin-bottom: 12px; }
+        .quick-label { font-family: var(--display); font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+        .quick-desc { font-size: 12px; color: var(--text-dim); }
         .coming-soon-tag {
-          position: absolute; top: 12px; right: 12px;
-          font-family: var(--mono); font-size: 8px; text-transform: uppercase;
-          letter-spacing: 1px; color: var(--text-muted); background: var(--surface-2);
-          padding: 2px 6px; border-radius: 3px;
+          position: absolute; top: 14px; right: 14px;
+          font-size: 9px; text-transform: uppercase; font-weight: 600;
+          letter-spacing: 0.8px; color: var(--text-muted); background: var(--surface-2);
+          padding: 3px 8px; border-radius: 4px;
         }
 
         /* Type selector in modal */
         .type-selector { display: flex; gap: 10px; margin-bottom: 4px; }
         .type-option {
-          flex: 1; padding: 14px; border-radius: 8px; border: 1px solid var(--border);
+          flex: 1; padding: 16px; border-radius: 10px; border: 1px solid var(--border);
           background: var(--bg); cursor: pointer; transition: all 0.15s;
           display: flex; gap: 12px; align-items: flex-start;
         }
         .type-option:hover { border-color: var(--border-hover); }
-        .type-option.selected { border-color: var(--accent); background: var(--accent-dim); }
+        .type-option.selected { border-color: var(--accent); background: #f5f5f5; }
         .type-option-icon { font-size: 20px; margin-top: 2px; }
-        .type-option-label { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
-        .type-option-desc { font-size: 10px; color: var(--text-dim); line-height: 1.4; }
+        .type-option-label { font-family: var(--display); font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+        .type-option-desc { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
 
         /* Modal */
         .modal-overlay {
-          position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+          position: fixed; inset: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(8px);
           display: flex; align-items: center; justify-content: center; z-index: 100;
           animation: fadeIn 0.15s ease;
         }
         .modal {
-          background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+          background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
           width: 520px; max-width: 90vw; overflow: hidden;
+          box-shadow: 0 24px 80px rgba(0,0,0,0.12);
         }
         .modal-header {
           display: flex; justify-content: space-between; align-items: center;
-          padding: 20px 24px; border-bottom: 1px solid var(--border);
+          padding: 22px 24px; border-bottom: 1px solid var(--border);
         }
-        .modal-title { font-size: 16px; font-weight: 600; margin: 0; }
+        .modal-title { font-family: var(--display); font-size: 18px; font-weight: 700; margin: 0; }
         .modal-close {
           background: none; border: none; color: var(--text-muted); font-size: 20px;
-          cursor: pointer; font-family: var(--mono);
+          cursor: pointer; width: 32px; height: 32px; border-radius: 8px;
+          display: flex; align-items: center; justify-content: center;
+          transition: all 0.12s;
         }
-        .modal-close:hover { color: var(--text); }
+        .modal-close:hover { color: var(--text); background: var(--surface-2); }
         .modal-body { padding: 24px; }
         .field-label {
-          display: block; font-family: var(--mono); font-size: 10px; text-transform: uppercase;
-          letter-spacing: 1.5px; color: var(--text-dim); margin-bottom: 8px;
+          display: block; font-size: 11px; text-transform: uppercase;
+          letter-spacing: 1.2px; color: var(--text-dim); margin-bottom: 8px; font-weight: 600;
         }
         .field-input {
-          width: 100%; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border);
-          background: var(--bg); color: var(--text); font-size: 13px; font-family: var(--display);
+          width: 100%; padding: 11px 14px; border-radius: 8px; border: 1px solid var(--border);
+          background: var(--bg); color: var(--text); font-size: 14px; font-family: var(--font);
           outline: none; transition: border-color 0.15s;
         }
-        .field-input:focus { border-color: rgba(255,107,43,0.3); }
+        .field-input:focus { border-color: var(--accent); }
         .field-input::placeholder { color: var(--text-muted); }
         .modal-footer {
           display: flex; justify-content: flex-end; gap: 10px;
-          padding: 16px 24px; border-top: 1px solid var(--border);
+          padding: 18px 24px; border-top: 1px solid var(--border);
         }
         .modal-cancel {
-          padding: 8px 16px; border-radius: 6px; border: 1px solid var(--border);
-          background: transparent; color: var(--text-dim); font-size: 12px;
-          cursor: pointer; font-family: var(--display);
+          padding: 9px 18px; border-radius: 8px; border: 1px solid var(--border);
+          background: transparent; color: var(--text-dim); font-size: 13px;
+          cursor: pointer; font-family: var(--font); font-weight: 500; transition: all 0.15s;
         }
         .modal-cancel:hover { color: var(--text); border-color: var(--border-hover); }
         .modal-create {
-          padding: 8px 20px; border-radius: 6px; border: none;
-          background: var(--accent); color: #fff; font-size: 12px; font-weight: 600;
-          cursor: pointer; font-family: var(--display); transition: all 0.15s;
+          padding: 9px 22px; border-radius: 8px; border: none;
+          background: var(--accent); color: #fff; font-size: 13px; font-weight: 600;
+          cursor: pointer; font-family: var(--font); transition: all 0.15s;
         }
         .modal-create:hover { background: var(--accent-hover); }
         .modal-create:disabled { opacity: 0.3; cursor: not-allowed; }

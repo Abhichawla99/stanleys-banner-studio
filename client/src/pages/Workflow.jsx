@@ -17,9 +17,9 @@ export default function Workflow() {
           top: 12,
           left: 62,
           zIndex: 9999,
-          background: '#17171f',
-          border: '1px solid #222230',
-          color: '#8a8aaa',
+          background: '#ffffff',
+          border: '1px solid #e0e0e0',
+          color: '#555555',
           borderRadius: 8,
           padding: '6px 14px',
           fontSize: 13,
@@ -27,10 +27,13 @@ export default function Workflow() {
           display: 'flex',
           alignItems: 'center',
           gap: 6,
-          fontFamily: 'inherit',
+          fontFamily: "'Inter', -apple-system, sans-serif",
+          fontWeight: 500,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          transition: 'all 0.12s',
         }}
-        onMouseOver={e => e.currentTarget.style.color = '#e4e4f2'}
-        onMouseOut={e => e.currentTarget.style.color = '#8a8aaa'}
+        onMouseOver={e => { e.currentTarget.style.color = '#1a1a1a'; e.currentTarget.style.borderColor = '#d0d0d0'; }}
+        onMouseOut={e => { e.currentTarget.style.color = '#555555'; e.currentTarget.style.borderColor = '#e0e0e0'; }}
       >
         <span style={{ fontSize: 16 }}>&larr;</span> Dashboard
       </button>

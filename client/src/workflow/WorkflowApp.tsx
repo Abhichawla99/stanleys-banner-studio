@@ -100,7 +100,7 @@ const PALETTE: { category: string; nodes: NodeDef[] }[] = [
     category: 'Brand & Campaign',
     nodes: [
       { type: 'brandKit',       label: 'Brand Kit',         icon: <Palette size={13} />,    color: '#f43f5e', description: 'Logo, colors, fonts, tone of voice' },
-      { type: 'campaignContext', label: 'Campaign Context', icon: <Target size={13} />,     color: '#fb923c', description: 'Objective, audience, key message' },
+      { type: 'campaignContext', label: 'Campaign Context', icon: <Target size={13} />,     color: '#d97706', description: 'Objective, audience, key message' },
     ],
   },
   {
@@ -116,8 +116,8 @@ const PALETTE: { category: string; nodes: NodeDef[] }[] = [
     nodes: [
       { type: 'llm',            label: 'LLM Prompt',      icon: <Sparkles size={13} />,   color: '#c084fc', description: 'Gemini / GPT-4 text gen' },
       { type: 'promptEnhancer', label: 'Prompt Enhancer', icon: <Wand2 size={13} />,      color: '#f472b6', description: 'AI-powered prompt upgrade' },
-      { type: 'promptBuilder',  label: 'Prompt Builder',  icon: <Wand2 size={13} />,      color: '#4ade80', description: 'Template + style modifier' },
-      { type: 'textSplit',           label: 'Text Split',          icon: <ListFilter size={13} />, color: '#fb923c', description: 'Split text into a list' },
+      { type: 'promptBuilder',  label: 'Prompt Builder',  icon: <Wand2 size={13} />,      color: 'var(--green)', description: 'Template + style modifier' },
+      { type: 'textSplit',           label: 'Text Split',          icon: <ListFilter size={13} />, color: '#d97706', description: 'Split text into a list' },
       { type: 'promptConcatenator', label: 'Prompt Concatenator', icon: <Combine size={13} />,    color: '#a3e635', description: 'Merge A/B/C/D text inputs into one' },
       { type: 'iterator',           label: 'Text Iterator',       icon: <Repeat2 size={13} />,    color: '#38bdf8', description: 'Step through a list of prompts' },
       { type: 'filter',             label: 'Filter / Router',     icon: <Filter size={13} />,     color: '#f97316', description: 'Route on conditions' },
@@ -129,10 +129,10 @@ const PALETTE: { category: string; nodes: NodeDef[] }[] = [
     category: 'Image Generation',
     nodes: [
       { type: 'nanoBanana',    label: 'Nano Banana 2',  icon: <Image size={13} />,     color: '#f59e0b', description: 'Gemini Flash image gen' },
-      { type: 'imagen4',       label: 'Imagen 4',       icon: <Sparkles size={13} />,  color: '#4ade80', description: 'Google Imagen 4 via Gemini API' },
+      { type: 'imagen4',       label: 'Imagen 4',       icon: <Sparkles size={13} />,  color: 'var(--green)', description: 'Google Imagen 4 via Gemini API' },
       { type: 'gptImage',      label: 'GPT Image 1',    icon: <Image size={13} />,     color: '#22d3ee', description: "OpenAI's gpt-image-1 model" },
       { type: 'flux',          label: 'Flux / Recraft', icon: <Zap size={13} />,       color: '#f59e0b', description: 'Flux Pro, Recraft, Ideogram via fal.ai' },
-      { type: 'imageTransform', label: 'Resize / Crop', icon: <Crop size={13} />,      color: '#fb923c', description: 'Resize or crop any image' },
+      { type: 'imageTransform', label: 'Resize / Crop', icon: <Crop size={13} />,      color: '#d97706', description: 'Resize or crop any image' },
       { type: 'fileUpload',    label: 'Reference Image', icon: <ImagePlus size={13} />, color: '#e879f9', description: 'Upload or link reference image' },
     ],
   },
@@ -415,7 +415,7 @@ function AppContent() {
 
       {/* Icon sidebar */}
       <div className="icon-sidebar">
-        <div className="sb-logo">AF</div>
+        <div className="sb-logo">S</div>
         <button className={`sb-btn${paletteOpen ? ' active' : ''}`} onClick={() => setPaletteOpen(o => !o)} title="Nodes (N)">
           <Plus size={16} />
         </button>
@@ -466,11 +466,11 @@ function AppContent() {
         ) : workflowProgress.done ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {workflowProgress.failed === 0 ? (
-              <span style={{ fontSize: 10, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 10, color: 'var(--green)', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <CheckCircle size={11} /> {workflowProgress.succeeded}/{workflowProgress.total} nodes succeeded
               </span>
             ) : (
-              <span style={{ fontSize: 10, color: '#fb923c', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 10, color: '#d97706', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <AlertCircle size={11} />
                 {workflowProgress.succeeded}/{workflowProgress.total} succeeded · {workflowProgress.failed} failed
               </span>
@@ -479,7 +479,7 @@ function AppContent() {
               <button
                 key={fn.id}
                 className="top-btn"
-                style={{ fontSize: 9, padding: '2px 6px', color: '#f87171', border: '1px solid #f8717140' }}
+                style={{ fontSize: 9, padding: '2px 6px', color: 'var(--red)', border: '1px solid rgba(229,62,62,0.25)' }}
                 onClick={() => retryFromNode(fn.id)}
                 title={`Error: ${fn.error}`}
               >
@@ -488,7 +488,7 @@ function AppContent() {
             ))}
             <button
               className="top-btn"
-              style={{ background: '#7c3aed18', border: '1px solid #7c3aed60', color: '#a78bfa' }}
+              style={{ background: 'var(--accent)', border: '1px solid var(--accent)', color: '#fff' }}
               onClick={() => runWorkflow()}
             >
               <Play size={11} /> Run Again
@@ -497,7 +497,7 @@ function AppContent() {
         ) : (
           <button
             className="top-btn"
-            style={{ background: '#7c3aed18', border: '1px solid #7c3aed60', color: '#a78bfa' }}
+            style={{ background: 'var(--accent)', border: '1px solid var(--accent)', color: '#fff' }}
             onClick={() => runWorkflow()}
             disabled={nodes.length === 0}
           >
@@ -506,7 +506,7 @@ function AppContent() {
         )}
 
         {workflowProgress.error && workflowProgress.error !== 'Stopped' && (
-          <span style={{ fontSize: 10, color: '#f87171', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 10, color: 'var(--red)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {workflowProgress.error}
           </span>
         )}
@@ -561,12 +561,12 @@ function AppContent() {
           }}
           deleteKeyCode={['Delete', 'Backspace']}
           multiSelectionKeyCode="Shift"
-          style={{ background: 'var(--bg)' }}
+          style={{ background: 'var(--canvas-bg)' }}
         >
-          <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} color="rgba(255,255,255,0.09)" />
+          <Background variant={BackgroundVariant.Dots} gap={22} size={1.2} color="var(--canvas-dot)" />
           <MiniMap
             style={{ background: 'var(--s1)', border: '1px solid var(--border2)' }}
-            nodeColor={() => '#7c6ff7'}
+            nodeColor={() => '#666666'}
             maskColor="rgba(0,0,0,0.45)"
             position="bottom-right"
           />

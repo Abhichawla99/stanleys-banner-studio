@@ -172,14 +172,13 @@ export default function BannerStudio() {
     return Object.entries(groups)
   }, [results])
 
+  const activeRuns = useRef(0)
+
   const generate = async () => {
     if (!artFile || !selected.length) return
+    activeRuns.current++
     setGenerating(true)
-    setResults([])
-    setProgress([])
-    setFavorites({})
     setViewTab('banners')
-    setSelectedResult(null)
 
     const form = new FormData()
     form.append('art', artFile)
@@ -223,14 +222,19 @@ export default function BannerStudio() {
         }
       }
     } catch (err) { console.error(err) }
-    setGenerating(false)
+    activeRuns.current--
+    if (activeRuns.current <= 0) {
+      activeRuns.current = 0
+      setGenerating(false)
+    }
     setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 300)
   }
 
   const allSelected = selected.length === banners.length
   const completedCount = progress.filter(p => p.step === 'done').length
   const errorCount = progress.filter(p => p.step === 'error').length
-  const canGenerate = artFile && selected.length && !generating
+  const activeJobs = progress.filter(p => p.step !== 'done' && p.step !== 'error')
+  const canGenerate = artFile && selected.length
   const hasFavorites = Object.values(favorites).some(Boolean)
 
   return (
@@ -443,46 +447,45 @@ export default function BannerStudio() {
               disabled={!canGenerate}
               onClick={generate}
             >
-              {generating ? (
-                <span className="gen-inner">
-                  <span className="gen-spinner" />
-                  Processing {completedCount}/{totalJobs}
-                </span>
-              ) : (
-                <span className="gen-inner">
-                  Generate {totalJobs} image{totalJobs !== 1 ? 's' : ''}
-                  <span className="gen-arrow">→</span>
-                </span>
-              )}
+              <span className="gen-inner">
+                {generating && <span className="gen-spinner" />}
+                Generate {totalJobs} image{totalJobs !== 1 ? 's' : ''}
+                <span className="gen-arrow">→</span>
+              </span>
             </button>
           </div>
 
           {/* RIGHT: Results */}
           <div className="canvas-area" ref={resultsRef}>
-            {/* Progress */}
-            {generating && progress.length > 0 && (
+            {/* Progress bar — visible whenever there are active jobs */}
+            {progress.length > 0 && (
               <div className="progress-block">
                 <div className="progress-top">
-                  <span className="progress-title">Processing</span>
-                  <span className="progress-frac">{completedCount}<span className="progress-of">/{totalJobs}</span></span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span className="progress-title">{activeJobs.length > 0 ? 'Processing' : 'Complete'}</span>
+                    {activeJobs.length === 0 && <button className="progress-clear" onClick={() => setProgress([])}>Dismiss</button>}
+                  </div>
+                  <span className="progress-frac">{completedCount}<span className="progress-of">/{progress.length}</span>
+                    {errorCount > 0 && <span className="progress-errors"> · {errorCount} failed</span>}
+                  </span>
                 </div>
                 <div className="progress-track">
-                  <div className="progress-fill" style={{ width: `${(completedCount / Math.max(totalJobs, 1)) * 100}%` }} />
+                  <div className="progress-fill" style={{ width: `${((completedCount + errorCount) / Math.max(progress.length, 1)) * 100}%` }} />
                 </div>
-                <div className="progress-pills">
-                  {progress.map(p => (
-                    <div key={p.jobId || p.bannerId} className={`pill ${p.step}`}>
-                      <span className={`pill-dot ${p.step}`} />
-                      <span className="pill-name">{p.label}</span>
-                      <span className="pill-status">
-                        {p.step === 'regenerating' && 'Gen'}
-                        {p.step === 'compositing' && 'Comp'}
-                        {p.step === 'done' && '✓'}
-                        {p.step === 'error' && '✗'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                {activeJobs.length > 0 && (
+                  <div className="progress-pills">
+                    {activeJobs.map(p => (
+                      <div key={p.jobId || p.bannerId} className={`pill ${p.step}`}>
+                        <span className={`pill-dot ${p.step}`} />
+                        <span className="pill-name">{p.label}</span>
+                        <span className="pill-status">
+                          {p.step === 'regenerating' && 'Generating'}
+                          {p.step === 'compositing' && 'Compositing'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -576,7 +579,7 @@ export default function BannerStudio() {
             )}
 
             {/* Empty state */}
-            {!generating && results.length === 0 && (
+            {!generating && results.length === 0 && progress.length === 0 && (
               <div className="empty">
                 <div className="empty-graphic">
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
@@ -990,6 +993,13 @@ export default function BannerStudio() {
           color: var(--text); letter-spacing: -1px;
         }
         .progress-of { color: var(--text-muted); font-weight: 300; font-size: 20px; }
+        .progress-errors { color: var(--red); font-size: 13px; font-weight: 500; }
+        .progress-clear {
+          font-size: 11px; color: var(--text-dim); background: none; border: 1px solid var(--border);
+          border-radius: 6px; padding: 4px 10px; cursor: pointer; font-family: var(--sans);
+          transition: all 0.12s;
+        }
+        .progress-clear:hover { color: var(--text); border-color: var(--text-dim); }
         .progress-track {
           height: 3px; background: var(--surface-3); border-radius: 2px;
           margin-bottom: 16px; overflow: hidden;
