@@ -370,32 +370,64 @@ function AppContent() {
   const [workflowName, setWorkflowName] = useState('Untitled')
   const [savedWorkflowId, setSavedWorkflowId] = useState<string | undefined>()
   const [theme, setTheme] = useState<'light' | 'dark'>(() => (localStorage.getItem('wf_theme') as 'light' | 'dark') ?? 'light')
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; canvasX: number; canvasY: number } | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; canvasX: number; canvasY: number; connectFrom?: { nodeId: string; handleType: string } } | null>(null)
+  const [ctxSearch, setCtxSearch] = useState('')
+  const ctxSearchRef = useRef<HTMLInputElement>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const clipboardRef = useRef<{ nodes: any[]; edges: any[] } | null>(null)
+  const pendingConnectRef = useRef<{ nodeId: string; handleType: string } | null>(null)
   const { screenToFlowPosition } = useReactFlow()
 
-  function spawn(type: string, pos?: { x: number; y: number }) {
+  function spawn(type: string, pos?: { x: number; y: number }): string {
     const id = `node-${nodeIdCounter++}`
     const position = pos ?? { x: 280 + Math.random() * 320, y: 100 + Math.random() * 220 }
     addNode({ id, type, position, data: {} })
+    return id
   }
 
   const onContextMenu = useCallback((e: React.MouseEvent) => {
-    // Only show on canvas background, not on nodes
     const target = e.target as HTMLElement
     if (target.closest('.node-wrapper') || target.closest('.react-flow__edge')) return
     e.preventDefault()
     const flowPos = screenToFlowPosition({ x: e.clientX, y: e.clientY })
     setCtxMenu({ x: e.clientX, y: e.clientY, canvasX: flowPos.x, canvasY: flowPos.y })
+    setCtxSearch('')
   }, [screenToFlowPosition])
 
-  // Close context menu on any click
+  const onConnectStart = useCallback((_: any, params: { nodeId: string | null; handleType: string | null }) => {
+    if (params.nodeId && params.handleType) {
+      pendingConnectRef.current = { nodeId: params.nodeId, handleType: params.handleType }
+    }
+  }, [])
+
+  const onConnectEnd = useCallback((event: MouseEvent | TouchEvent) => {
+    const pending = pendingConnectRef.current
+    pendingConnectRef.current = null
+    if (!pending) return
+
+    // Check if dropped on a handle — if so, ReactFlow's onConnect handles it
+    const target = (event as MouseEvent).target as HTMLElement
+    if (target?.closest('.react-flow__handle')) return
+
+    const clientX = 'clientX' in event ? event.clientX : event.touches[0].clientX
+    const clientY = 'clientY' in event ? event.clientY : event.touches[0].clientY
+    const flowPos = screenToFlowPosition({ x: clientX, y: clientY })
+    setCtxMenu({ x: clientX, y: clientY, canvasX: flowPos.x, canvasY: flowPos.y, connectFrom: pending })
+    setCtxSearch('')
+  }, [screenToFlowPosition])
+
+  // Close context menu on any click or right-click elsewhere
   useEffect(() => {
     if (!ctxMenu) return
     const close = () => setCtxMenu(null)
-    window.addEventListener('mousedown', close)
-    return () => window.removeEventListener('mousedown', close)
+    window.addEventListener('mousedown', close, true)
+    window.addEventListener('contextmenu', close, true)
+    window.addEventListener('scroll', close, true)
+    return () => {
+      window.removeEventListener('mousedown', close, true)
+      window.removeEventListener('contextmenu', close, true)
+      window.removeEventListener('scroll', close, true)
+    }
   }, [ctxMenu])
 
   function clearAll() {
@@ -695,6 +727,8 @@ function AppContent() {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onConnectStart={onConnectStart}
+          onConnectEnd={onConnectEnd}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           connectionRadius={40}
@@ -739,31 +773,63 @@ function AppContent() {
           </div>
         )}
 
-        {/* Right-click context menu */}
-        {ctxMenu && (
-          <div
-            className="canvas-ctx-menu"
-            style={{ left: ctxMenu.x, top: ctxMenu.y }}
-            onMouseDown={e => e.stopPropagation()}
-          >
-            <div className="ctx-menu-header">Add Node</div>
-            {QUICK_ADD.map(item => (
-              <button
-                key={item.type}
-                className="ctx-menu-item"
-                onClick={() => { spawn(item.type, { x: ctxMenu.canvasX - 140, y: ctxMenu.canvasY - 30 }); setCtxMenu(null) }}
-              >
-                <span className="ctx-menu-icon" style={{ color: item.color }}>{item.icon}</span>
-                <span>{item.label}</span>
-              </button>
-            ))}
-            <div className="ctx-menu-divider" />
-            <button className="ctx-menu-item" onClick={() => { setPaletteOpen(true); setCtxMenu(null) }}>
-              <span className="ctx-menu-icon" style={{ color: 'var(--t3)' }}><Plus size={12} /></span>
-              <span>Browse All Nodes...</span>
-            </button>
-          </div>
-        )}
+        {/* Right-click / connect-end context menu */}
+        {ctxMenu && (() => {
+          const allNodes = PALETTE.flatMap(cat => cat.nodes)
+          const q = ctxSearch.toLowerCase()
+          const filtered = q ? allNodes.filter(n => n.label.toLowerCase().includes(q) || n.description.toLowerCase().includes(q)) : null
+          const items = filtered ?? QUICK_ADD
+
+          function pickNode(type: string) {
+            const newId = spawn(type, { x: ctxMenu!.canvasX - 140, y: ctxMenu!.canvasY - 30 })
+            // Auto-connect if opened from handle drag
+            if (ctxMenu!.connectFrom) {
+              const { nodeId, handleType } = ctxMenu!.connectFrom
+              const connection = handleType === 'source'
+                ? { source: nodeId, target: newId, sourceHandle: null, targetHandle: null }
+                : { source: newId, target: nodeId, sourceHandle: null, targetHandle: null }
+              onConnect(connection)
+            }
+            setCtxMenu(null)
+            setCtxSearch('')
+          }
+
+          return (
+            <div
+              className="canvas-ctx-menu"
+              style={{ left: ctxMenu.x, top: ctxMenu.y }}
+              onMouseDown={e => e.stopPropagation()}
+            >
+              <div className="ctx-search-wrap">
+                <Search size={12} />
+                <input
+                  ref={ctxSearchRef}
+                  className="ctx-search"
+                  placeholder="Search nodes..."
+                  value={ctxSearch}
+                  onChange={e => setCtxSearch(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Escape') { setCtxMenu(null); setCtxSearch('') }
+                    if (e.key === 'Enter' && items.length > 0) pickNode(items[0].type)
+                  }}
+                  autoFocus
+                />
+              </div>
+              <div className="ctx-menu-divider" />
+              <div className="ctx-menu-scroll">
+                {items.length === 0 && (
+                  <div style={{ padding: '8px 10px', fontSize: 11, color: 'var(--t3)' }}>No matching nodes</div>
+                )}
+                {items.map(item => (
+                  <button key={item.type} className="ctx-menu-item" onClick={() => pickNode(item.type)}>
+                    <span className="ctx-menu-icon" style={{ color: item.color }}>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
       </div>
     </div>
   )

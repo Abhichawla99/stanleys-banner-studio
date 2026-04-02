@@ -279,17 +279,14 @@
   border: 1px solid var(--border);
   border-left: 3px solid var(--border);
   border-radius: 12px; overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
-  transition: box-shadow 0.2s cubic-bezier(0.4,0,0.2,1), border-color 0.2s, transform 0.2s cubic-bezier(0.4,0,0.2,1);
+  transition: border-color 0.2s, transform 0.2s cubic-bezier(0.4,0,0.2,1);
 }
 .wf-root .node-wrapper:hover {
-  box-shadow: 0 8px 28px rgba(0,0,0,0.14), 0 2px 6px rgba(0,0,0,0.06);
   transform: translateY(-1px);
 }
 .wf-root .node-wrapper.selected {
   border-color: var(--accent) !important;
   border-left-color: var(--accent) !important;
-  box-shadow: 0 0 0 2px var(--accent-glow), 0 8px 28px rgba(0,0,0,0.14);
 }
 
 /* Node accent left bars — colour by category
@@ -479,47 +476,7 @@
 .wf-root .react-flow__background { background: var(--canvas-bg) !important; }
 .wf-root .react-flow__controls { display: none !important; }
 
-/* ─── CUSTOM EDGES / WIRES (light mode) ─── */
-.wf-root .edge-wire {
-  stroke: rgba(0,0,0,0.2);
-  stroke-width: 2;
-  transition: stroke 0.2s, stroke-width 0.2s;
-}
-.wf-root .edge-glow {
-  stroke: rgba(0,0,0,0.04);
-  stroke-width: 8;
-  filter: blur(3px);
-  transition: stroke 0.2s;
-}
-.wf-root .react-flow__edge:hover .edge-wire {
-  stroke: rgba(0,0,0,0.45);
-  stroke-width: 2.5;
-}
-.wf-root .react-flow__edge:hover .edge-glow {
-  stroke: rgba(0,0,0,0.08);
-}
-.wf-root .edge-wire.edge-selected {
-  stroke: rgba(0,0,0,0.55);
-  stroke-width: 2.5;
-}
-.wf-root .edge-glow.edge-selected {
-  stroke: rgba(0,0,0,0.12);
-}
-
-/* Animated flow dots */
-.wf-root .edge-dot {
-  fill: rgba(0,0,0,0.45);
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-.wf-root .react-flow__edge:hover .edge-dot {
-  opacity: 1;
-}
-.wf-root .edge-dot-delayed {
-  fill: rgba(0,0,0,0.25);
-}
-
-/* Connection line while dragging */
+/* ─── CONNECTION LINE (while dragging) ─── */
 .wf-root .react-flow__connectionline {
   stroke: rgba(0,0,0,0.4);
   stroke-width: 2;
@@ -640,15 +597,7 @@
 .wf-root .wf-dark .status-done { background: rgba(74,222,128,0.1); }
 .wf-root .wf-dark .status-error { background: rgba(248,113,113,0.1); }
 
-/* Dark mode edges */
-.wf-root .wf-dark .edge-wire { stroke: rgba(255,255,255,0.18); }
-.wf-root .wf-dark .edge-glow { stroke: rgba(255,255,255,0.04); }
-.wf-root .wf-dark .react-flow__edge:hover .edge-wire { stroke: rgba(255,255,255,0.45); }
-.wf-root .wf-dark .react-flow__edge:hover .edge-glow { stroke: rgba(255,255,255,0.08); }
-.wf-root .wf-dark .edge-wire.edge-selected { stroke: rgba(255,255,255,0.55); }
-.wf-root .wf-dark .edge-glow.edge-selected { stroke: rgba(255,255,255,0.12); }
-.wf-root .wf-dark .edge-dot { fill: rgba(255,255,255,0.5); }
-.wf-root .wf-dark .edge-dot-delayed { fill: rgba(255,255,255,0.3); }
+/* Dark mode connection line */
 .wf-root .wf-dark .react-flow__connectionline { stroke: rgba(255,255,255,0.5); }
 
 /* Dark mode handles */
@@ -697,13 +646,27 @@
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
 }
-.ctx-menu-header {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.ctx-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
   color: #999;
-  padding: 4px 8px 6px;
+}
+.ctx-search {
+  flex: 1;
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 12px;
+  color: inherit;
+  font-family: inherit;
+}
+.ctx-search::placeholder { color: #bbb; }
+.ctx-menu-scroll {
+  max-height: 280px;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 .ctx-menu-item {
   display: flex;
@@ -745,9 +708,9 @@
   border-color: #333;
   box-shadow: 0 8px 30px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2);
 }
-.wf-root .wf-dark .ctx-menu-header {
-  color: #666;
-}
+.wf-root .wf-dark .ctx-search-wrap { color: #666; }
+.wf-root .wf-dark .ctx-search { color: #ddd; }
+.wf-root .wf-dark .ctx-search::placeholder { color: #555; }
 .wf-root .wf-dark .ctx-menu-item {
   color: #ddd;
 }
