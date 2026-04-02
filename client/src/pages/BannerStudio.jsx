@@ -457,30 +457,41 @@ export default function BannerStudio() {
 
           {/* RIGHT: Results */}
           <div className="canvas-area" ref={resultsRef}>
-            {/* Progress bar — visible whenever there are active jobs */}
+            {/* Progress — visible whenever there are active jobs */}
             {progress.length > 0 && (
               <div className="progress-block">
-                <div className="progress-top">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span className="progress-title">{activeJobs.length > 0 ? 'Processing' : 'Complete'}</span>
-                    {activeJobs.length === 0 && <button className="progress-clear" onClick={() => setProgress([])}>Dismiss</button>}
+                <div className="progress-header">
+                  <div className="progress-left">
+                    <span className={`progress-indicator ${activeJobs.length > 0 ? 'active' : 'done'}`} />
+                    <span className="progress-title">{activeJobs.length > 0 ? 'Generating' : 'All done'}</span>
                   </div>
-                  <span className="progress-frac">{completedCount}<span className="progress-of">/{progress.length}</span>
-                    {errorCount > 0 && <span className="progress-errors"> · {errorCount} failed</span>}
-                  </span>
+                  <div className="progress-right">
+                    <span className="progress-frac">
+                      <span className="progress-num">{completedCount}</span>
+                      <span className="progress-of"> of {progress.length}</span>
+                      {errorCount > 0 && <span className="progress-errors"> · {errorCount} failed</span>}
+                    </span>
+                    {activeJobs.length === 0 && (
+                      <button className="progress-dismiss" onClick={() => setProgress([])}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="progress-track">
-                  <div className="progress-fill" style={{ width: `${((completedCount + errorCount) / Math.max(progress.length, 1)) * 100}%` }} />
+                  <div
+                    className={`progress-fill ${activeJobs.length === 0 ? 'complete' : ''}`}
+                    style={{ width: `${((completedCount + errorCount) / Math.max(progress.length, 1)) * 100}%` }}
+                  />
                 </div>
                 {activeJobs.length > 0 && (
-                  <div className="progress-pills">
+                  <div className="progress-jobs">
                     {activeJobs.map(p => (
-                      <div key={p.jobId || p.bannerId} className={`pill ${p.step}`}>
-                        <span className={`pill-dot ${p.step}`} />
-                        <span className="pill-name">{p.label}</span>
-                        <span className="pill-status">
-                          {p.step === 'regenerating' && 'Generating'}
-                          {p.step === 'compositing' && 'Compositing'}
+                      <div key={p.jobId || p.bannerId} className="job-chip">
+                        <span className="job-spinner" />
+                        <span className="job-label">{p.label}</span>
+                        <span className="job-step">
+                          {p.step === 'regenerating' ? 'AI generating' : 'Compositing'}
                         </span>
                       </div>
                     ))}
@@ -509,29 +520,33 @@ export default function BannerStudio() {
                   <div className="results-bar-right">
                     {variations > 1 && hasFavorites && (
                       <button className="dl-fav-btn" onClick={downloadFavorites}>
-                        ↓ Favorites ({Object.values(favorites).filter(Boolean).length})
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                        Favorites ({Object.values(favorites).filter(Boolean).length})
                       </button>
                     )}
-                    <span className="results-n">{results.length} outputs</span>
+                    <span className="results-count">{results.length} output{results.length !== 1 ? 's' : ''}</span>
                   </div>
                 </div>
 
                 <div className="results-grouped">
-                  {groupedResults.map(([bannerId, vars]) => (
-                    <div key={bannerId} className="format-group">
+                  {groupedResults.map(([bannerId, vars], gi) => (
+                    <div key={bannerId} className="format-group" style={{ animationDelay: `${gi * 60}ms` }}>
                       <div className="format-group-header">
-                        <span className="format-group-name">{vars[0].label}</span>
-                        <span className="format-group-dims">{vars[0].width}×{vars[0].height}</span>
+                        <div className="format-group-left">
+                          <span className="format-group-name">{vars[0].label}</span>
+                          <span className="format-group-dims">{vars[0].width} × {vars[0].height}</span>
+                        </div>
                         {vars.length > 1 && <span className="format-group-count">{vars.length} variations</span>}
                       </div>
                       <div className={`variation-row ${vars.length === 1 ? 'single' : ''}`}>
-                        {vars.map(r => {
+                        {vars.map((r, vi) => {
                           const rKey = r.jobId || r.bannerId
                           const isFav = favorites[r.bannerId] === rKey
                           return (
                             <div
                               key={rKey}
                               className={`result-card ${isFav ? 'favorited' : ''}`}
+                              style={{ animationDelay: `${(gi * 60) + (vi * 40)}ms` }}
                               onClick={() => setSelectedResult(selectedResult === rKey ? null : rKey)}
                             >
                               <div className="result-img-wrap">
@@ -542,7 +557,13 @@ export default function BannerStudio() {
                                                                  (r.templateUrl)
                                   }
                                   className="result-img"
+                                  loading="lazy"
                                 />
+                                <div className="result-overlay">
+                                  <span className="result-expand">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                                  </span>
+                                </div>
                                 {variations > 1 && (
                                   <div className="variation-badge">v{(r.variationIndex ?? 0) + 1}</div>
                                 )}
@@ -550,7 +571,7 @@ export default function BannerStudio() {
                               <div className="result-footer">
                                 <div className="result-info">
                                   <span className="result-name">{r.label}{variations > 1 ? ` v${(r.variationIndex ?? 0) + 1}` : ''}</span>
-                                  <span className="result-dims">{r.width}×{r.height}</span>
+                                  <span className="result-dims">{r.width} × {r.height}</span>
                                 </div>
                                 <div className="result-actions">
                                   {variations > 1 && (
@@ -565,7 +586,10 @@ export default function BannerStudio() {
                                     target="_blank"
                                     className="dl-btn"
                                     onClick={e => e.stopPropagation()}
-                                  >↓</a>
+                                    title="Download"
+                                  >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                                  </a>
                                 </div>
                               </div>
                             </div>
@@ -581,19 +605,21 @@ export default function BannerStudio() {
             {/* Empty state */}
             {!generating && results.length === 0 && progress.length === 0 && (
               <div className="empty">
-                <div className="empty-graphic">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <div className="empty-icon">
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2">
+                    <rect x="3" y="3" width="18" height="18" rx="3"/>
                     <circle cx="8.5" cy="8.5" r="1.5"/>
                     <polyline points="21 15 16 10 5 21"/>
                   </svg>
                 </div>
-                <div className="empty-text">Output canvas</div>
-                <div className="empty-sub">Your generated banners will appear here across all selected formats</div>
+                <div className="empty-title">Output Canvas</div>
+                <div className="empty-desc">Generated banners appear here across all selected formats</div>
                 <div className="empty-steps">
-                  <div className="empty-step"><span className="empty-step-num">1</span>Upload art</div>
-                  <div className="empty-step"><span className="empty-step-num">2</span>Select formats</div>
-                  <div className="empty-step"><span className="empty-step-num">3</span>Generate</div>
+                  <div className="empty-step"><span className="step-marker">1</span>Upload key art</div>
+                  <div className="empty-step-arrow">→</div>
+                  <div className="empty-step"><span className="step-marker">2</span>Pick formats</div>
+                  <div className="empty-step-arrow">→</div>
+                  <div className="empty-step"><span className="step-marker">3</span>Generate</div>
                 </div>
               </div>
             )}
@@ -978,76 +1004,91 @@ export default function BannerStudio() {
           box-shadow: 0 1px 3px rgba(0,0,0,0.04);
         }
 
-        /* Progress */
-        .progress-block { margin-bottom: 32px; animation: fadeIn 0.2s ease; }
-        .progress-top {
-          display: flex; justify-content: space-between; align-items: baseline;
-          margin-bottom: 16px;
+        /* ===== PROGRESS ===== */
+        .progress-block {
+          margin-bottom: 28px; padding: 18px 20px;
+          background: var(--surface-2); border: 1px solid var(--border);
+          border-radius: 12px; animation: slideDown 0.3s cubic-bezier(0.16,1,0.3,1);
         }
+        .progress-header {
+          display: flex; justify-content: space-between; align-items: center;
+          margin-bottom: 14px;
+        }
+        .progress-left { display: flex; align-items: center; gap: 10px; }
+        .progress-indicator {
+          width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+        }
+        .progress-indicator.active { background: var(--text); animation: pulse 1.4s ease infinite; }
+        .progress-indicator.done { background: var(--green); }
         .progress-title {
-          font-family: var(--sans); font-size: 11px; font-weight: 600;
-          text-transform: uppercase; letter-spacing: 1.2px; color: var(--text-dim);
+          font-family: var(--sans); font-size: 13px; font-weight: 600;
+          color: var(--text); letter-spacing: -0.2px;
         }
-        .progress-frac {
-          font-family: var(--display); font-size: 28px; font-weight: 700;
-          color: var(--text); letter-spacing: -1px;
+        .progress-right { display: flex; align-items: center; gap: 10px; }
+        .progress-frac { font-family: var(--sans); font-size: 13px; color: var(--text-dim); }
+        .progress-num { font-weight: 700; color: var(--text); font-size: 15px; }
+        .progress-of { font-weight: 400; }
+        .progress-errors { color: var(--red); font-weight: 500; }
+        .progress-dismiss {
+          width: 28px; height: 28px; border-radius: 50%; border: none;
+          background: transparent; color: var(--text-muted); cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: all 0.15s;
         }
-        .progress-of { color: var(--text-muted); font-weight: 300; font-size: 20px; }
-        .progress-errors { color: var(--red); font-size: 13px; font-weight: 500; }
-        .progress-clear {
-          font-size: 11px; color: var(--text-dim); background: none; border: 1px solid var(--border);
-          border-radius: 6px; padding: 4px 10px; cursor: pointer; font-family: var(--sans);
-          transition: all 0.12s;
-        }
-        .progress-clear:hover { color: var(--text); border-color: var(--text-dim); }
+        .progress-dismiss:hover { background: var(--surface-3); color: var(--text); }
         .progress-track {
           height: 3px; background: var(--surface-3); border-radius: 2px;
-          margin-bottom: 16px; overflow: hidden;
+          overflow: hidden;
         }
         .progress-fill {
           height: 100%; background: var(--text); border-radius: 2px;
-          transition: width 0.5s ease;
+          transition: width 0.6s cubic-bezier(0.16,1,0.3,1);
         }
-        .progress-pills { display: flex; flex-wrap: wrap; gap: 6px; max-height: 200px; overflow-y: auto; }
-        .pill {
-          display: flex; align-items: center; gap: 6px; padding: 6px 12px;
-          background: var(--surface-2); border-radius: 6px; font-size: 11px;
-          border: 1px solid var(--border);
+        .progress-fill.complete { background: var(--green); }
+        .progress-jobs {
+          display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px;
+          max-height: 160px; overflow-y: auto;
         }
-        .pill-dot {
-          width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+        .job-chip {
+          display: flex; align-items: center; gap: 7px; padding: 5px 12px;
+          background: var(--surface); border-radius: 20px; font-size: 11px;
+          border: 1px solid var(--border); animation: fadeIn 0.25s ease;
         }
-        .pill-dot.regenerating, .pill-dot.compositing { background: var(--text); animation: pulse 1.2s infinite; }
-        .pill-dot.done { background: var(--green); }
-        .pill-dot.error { background: var(--red); }
-        .pill-name { color: var(--text); font-weight: 500; }
-        .pill-status { color: var(--text-dim); }
+        .job-spinner {
+          width: 10px; height: 10px; border: 1.5px solid var(--border);
+          border-top-color: var(--text); border-radius: 50%;
+          animation: spin 0.7s linear infinite; flex-shrink: 0;
+        }
+        .job-label { color: var(--text); font-weight: 600; }
+        .job-step { color: var(--text-muted); font-weight: 400; }
 
-        /* Tabs + Results header */
+        /* ===== TABS + RESULTS HEADER ===== */
         .results-bar {
           display: flex; justify-content: space-between; align-items: center;
-          margin-bottom: 24px;
+          margin-bottom: 20px;
         }
-        .tab-group { display: flex; gap: 0; }
+        .tab-group { display: flex; gap: 2px; background: var(--surface-2); padding: 3px; border-radius: 10px; }
         .tab {
-          padding: 8px 18px; border: 1px solid var(--border); border-right: none;
+          padding: 7px 16px; border: none;
           background: transparent; color: var(--text-dim); font-family: var(--sans);
-          font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+          font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s;
+          border-radius: 7px;
         }
-        .tab:first-child { border-radius: 8px 0 0 8px; }
-        .tab:last-child { border-right: 1px solid var(--border); border-radius: 0 8px 8px 0; }
-        .tab.active { background: var(--text); color: #fff; border-color: var(--text); }
-        .tab.active + .tab { border-left-color: var(--text); }
-        .tab:hover:not(.active) { color: var(--text); background: var(--surface-2); }
-        .results-n { font-size: 11px; color: var(--text-dim); }
-        .results-bar-right { display: flex; align-items: center; gap: 12px; }
+        .tab.active { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .tab:hover:not(.active) { color: var(--text); }
+        .results-count {
+          font-size: 11px; color: var(--text-muted); font-family: var(--sans);
+          background: var(--surface-2); padding: 4px 10px; border-radius: 6px;
+        }
+        .results-bar-right { display: flex; align-items: center; gap: 10px; }
         .dl-fav-btn {
-          padding: 6px 14px; border-radius: 6px; font-family: var(--sans);
-          font-size: 11px; font-weight: 600; background: var(--green-dim);
-          color: var(--green); border: 1px solid rgba(26,135,84,0.15);
-          cursor: pointer; transition: all 0.15s;
+          display: inline-flex; align-items: center; gap: 6px;
+          padding: 6px 14px; border-radius: 8px; font-family: var(--sans);
+          font-size: 11px; font-weight: 600; background: var(--text);
+          color: #fff; border: none;
+          cursor: pointer; transition: all 0.2s;
         }
-        .dl-fav-btn:hover { background: rgba(26,135,84,0.12); border-color: rgba(26,135,84,0.3); }
+        .dl-fav-btn:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
 
         /* Variations Slider */
         .variations-row {
@@ -1073,121 +1114,152 @@ export default function BannerStudio() {
           letter-spacing: -0.1px;
         }
 
-        /* Grouped Results */
+        /* ===== GROUPED RESULTS ===== */
         .results-grouped {
-          display: flex; flex-direction: column; gap: 24px;
-          animation: fadeIn 0.3s ease;
+          display: flex; flex-direction: column; gap: 20px;
         }
         .format-group {
           background: var(--surface-2); border: 1px solid var(--border);
-          border-radius: 12px; padding: 20px; transition: all 0.2s;
+          border-radius: 14px; padding: 20px;
+          transition: border-color 0.2s, box-shadow 0.2s;
+          animation: cardEnter 0.4s cubic-bezier(0.16,1,0.3,1) both;
         }
-        .format-group:hover { border-color: var(--border-hover); }
+        .format-group:hover { border-color: var(--border-hover); box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
         .format-group-header {
-          display: flex; align-items: center; gap: 12px;
-          margin-bottom: 16px; padding-bottom: 12px;
-          border-bottom: 1px solid var(--border);
+          display: flex; align-items: center; justify-content: space-between;
+          margin-bottom: 16px;
         }
+        .format-group-left { display: flex; align-items: baseline; gap: 10px; }
         .format-group-name {
-          font-family: var(--sans); font-size: 15px; font-weight: 600;
-          color: var(--text); letter-spacing: -0.3px;
+          font-family: var(--display); font-size: 16px; font-weight: 600;
+          color: var(--text); letter-spacing: -0.4px;
         }
         .format-group-dims {
           font-size: 11px; color: var(--text-muted);
-          font-variant-numeric: tabular-nums;
+          font-variant-numeric: tabular-nums; font-family: var(--sans);
         }
         .format-group-count {
           font-size: 10px; color: var(--text-dim); background: var(--surface);
-          padding: 3px 10px; border-radius: 12px; font-weight: 600;
-          border: 1px solid var(--border);
+          padding: 4px 12px; border-radius: 20px; font-weight: 600;
+          font-family: var(--sans); letter-spacing: 0.2px;
         }
         .variation-row {
-          display: flex; gap: 12px; overflow-x: auto;
-          padding-bottom: 4px;
+          display: flex; gap: 14px; overflow-x: auto;
+          padding-bottom: 4px; scroll-snap-type: x mandatory;
         }
         .variation-row.single { justify-content: flex-start; }
         .variation-row .result-card {
-          min-width: 220px; max-width: 300px; flex-shrink: 0;
+          min-width: 230px; max-width: 300px; flex-shrink: 0;
+          scroll-snap-align: start;
         }
-        .variation-row.single .result-card { min-width: 260px; }
+        .variation-row.single .result-card { min-width: 280px; }
 
         .result-card {
           background: var(--surface); border: 1px solid var(--border);
-          border-radius: 10px; overflow: hidden; cursor: pointer;
-          transition: all 0.2s;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+          border-radius: 12px; overflow: hidden; cursor: pointer;
+          transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+          animation: cardEnter 0.4s cubic-bezier(0.16,1,0.3,1) both;
         }
-        .result-card:hover { border-color: var(--border-hover); box-shadow: 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-1px); }
-        .result-card.favorited { border-color: #d4a017; box-shadow: 0 0 0 1px #d4a017, 0 4px 16px rgba(212,160,23,0.12); }
-        .result-img-wrap { padding: 12px; background: var(--surface); position: relative; }
+        .result-card:hover {
+          border-color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+          transform: translateY(-3px);
+        }
+        .result-card.favorited {
+          border-color: #c8a000;
+          box-shadow: 0 0 0 1px #c8a000, 0 4px 16px rgba(200,160,0,0.1);
+        }
+        .result-img-wrap {
+          padding: 14px 14px 10px; background: var(--surface-2); position: relative;
+          overflow: hidden;
+        }
         .result-img {
-          width: 100%; height: 170px; object-fit: contain; display: block;
-          border-radius: 6px;
+          width: 100%; height: 180px; object-fit: contain; display: block;
+          border-radius: 6px; transition: transform 0.3s cubic-bezier(0.16,1,0.3,1);
         }
+        .result-card:hover .result-img { transform: scale(1.02); }
+        .result-overlay {
+          position: absolute; inset: 0; background: rgba(0,0,0,0);
+          display: flex; align-items: center; justify-content: center;
+          transition: background 0.25s;
+        }
+        .result-expand {
+          opacity: 0; transform: scale(0.8);
+          width: 40px; height: 40px; border-radius: 50%;
+          background: rgba(0,0,0,0.7); color: #fff;
+          display: flex; align-items: center; justify-content: center;
+          transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+          backdrop-filter: blur(4px);
+        }
+        .result-card:hover .result-overlay { background: rgba(0,0,0,0.08); }
+        .result-card:hover .result-expand { opacity: 1; transform: scale(1); }
         .variation-badge {
-          position: absolute; top: 16px; left: 16px;
-          font-size: 10px; font-weight: 600; color: #fff;
-          background: var(--text); padding: 3px 8px; border-radius: 5px;
-          letter-spacing: 0.3px; font-family: var(--sans);
+          position: absolute; top: 18px; left: 18px;
+          font-size: 10px; font-weight: 700; color: #fff;
+          background: var(--text); padding: 3px 9px; border-radius: 6px;
+          letter-spacing: 0.4px; font-family: var(--sans);
+          box-shadow: 0 2px 6px rgba(0,0,0,0.15);
         }
         .result-footer {
           display: flex; align-items: center; justify-content: space-between;
-          padding: 10px 14px; border-top: 1px solid var(--border);
+          padding: 12px 14px; border-top: 1px solid var(--border);
         }
-        .result-info { display: flex; flex-direction: column; }
+        .result-info { display: flex; flex-direction: column; gap: 2px; }
         .result-name { font-size: 12px; font-weight: 600; color: var(--text); letter-spacing: -0.2px; }
-        .result-dims { font-size: 10px; color: var(--text-muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+        .result-dims { font-size: 10px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
         .result-actions { display: flex; align-items: center; gap: 6px; }
 
         .fav-btn {
-          background: none; border: 1px solid var(--border); border-radius: 6px;
+          background: none; border: 1px solid var(--border); border-radius: 7px;
           color: var(--text-muted); font-size: 14px; cursor: pointer;
-          padding: 4px 8px; transition: all 0.15s; line-height: 1;
+          padding: 5px 9px; transition: all 0.2s; line-height: 1;
         }
-        .fav-btn:hover { color: #d4a017; border-color: rgba(212,160,23,0.3); }
-        .fav-btn.active { color: #d4a017; border-color: #d4a017; background: rgba(212,160,23,0.06); }
+        .fav-btn:hover { color: #c8a000; border-color: rgba(200,160,0,0.4); background: rgba(200,160,0,0.04); }
+        .fav-btn.active { color: #c8a000; border-color: #c8a000; background: rgba(200,160,0,0.06); }
 
         .dl-btn {
-          display: inline-flex; align-items: center; gap: 5px;
-          padding: 6px 14px; border-radius: 6px; font-family: var(--sans);
-          font-size: 11px; font-weight: 600; background: var(--text);
-          color: #fff; text-decoration: none; transition: all 0.15s;
-          border: none;
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 30px; height: 30px; border-radius: 7px;
+          background: var(--surface-2); border: 1px solid var(--border);
+          color: var(--text-dim); text-decoration: none;
+          transition: all 0.2s; cursor: pointer;
         }
-        .dl-btn:hover { background: var(--accent-hover); }
+        .dl-btn:hover { background: var(--text); color: #fff; border-color: var(--text); }
 
-        /* Empty state */
+        /* ===== EMPTY STATE ===== */
         .empty {
           flex: 1; display: flex; flex-direction: column;
-          align-items: center; justify-content: center; text-align: center; gap: 16px;
+          align-items: center; justify-content: center; text-align: center; gap: 20px;
+          animation: fadeIn 0.5s ease;
         }
-        .empty-graphic {
-          width: 80px; height: 80px; border-radius: 20px;
-          background: var(--surface-2); border: 1px solid var(--border);
+        .empty-icon {
+          width: 88px; height: 88px; border-radius: 24px;
+          background: var(--surface-2); border: 1px dashed var(--border);
           display: flex; align-items: center; justify-content: center;
-          color: var(--text-muted); opacity: 0.6;
+          color: var(--text-muted); opacity: 0.5;
         }
-        .empty-text {
-          font-family: var(--sans); font-size: 22px; font-weight: 600;
-          color: var(--text-dim); letter-spacing: -0.5px;
+        .empty-title {
+          font-family: var(--display); font-size: 24px; font-weight: 600;
+          color: var(--text-dim); letter-spacing: -0.6px;
         }
-        .empty-sub {
-          font-size: 13px; color: var(--text-muted); line-height: 1.7;
-          max-width: 280px;
+        .empty-desc {
+          font-size: 13px; color: var(--text-muted); line-height: 1.6;
+          max-width: 300px;
         }
         .empty-steps {
-          display: flex; gap: 8px; margin-top: 8px;
+          display: flex; align-items: center; gap: 6px; margin-top: 4px;
         }
         .empty-step {
           display: flex; align-items: center; gap: 7px;
           font-size: 11px; color: var(--text-dim);
-          background: var(--surface-2); border: 1px solid var(--border);
-          padding: 6px 12px; border-radius: 20px;
+          background: var(--surface-2); padding: 7px 14px; border-radius: 20px;
+          font-family: var(--sans); font-weight: 500;
         }
-        .empty-step-num {
+        .empty-step-arrow { color: var(--text-muted); font-size: 11px; }
+        .step-marker {
           width: 18px; height: 18px; border-radius: 50%;
           background: var(--text); color: #fff;
-          display: flex; align-items: center; justify-content: center;
+          display: inline-flex; align-items: center; justify-content: center;
           font-size: 10px; font-weight: 700; flex-shrink: 0;
         }
 
@@ -1242,6 +1314,14 @@ export default function BannerStudio() {
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes cardEnter {
+          from { opacity: 0; transform: translateY(12px) scale(0.97); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
 
         /* ===== RESPONSIVE ===== */
         @media (max-width: 900px) {
