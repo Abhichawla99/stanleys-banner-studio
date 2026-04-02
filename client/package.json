@@ -8,10 +8,13 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.2.2",
     "@xyflow/react": "^12.10.2",
+    "lucide-react": "^1.7.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.13.2",
+    "tailwindcss": "^4.2.2",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

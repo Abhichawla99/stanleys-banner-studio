@@ -30,3 +30,8 @@ npm-debug.log*
 .vscode/
 .idea/
 .vercel
+
+# Aiflow
+aiflow/node_modules/
+aiflow/dist/
+aiflow/.claude/

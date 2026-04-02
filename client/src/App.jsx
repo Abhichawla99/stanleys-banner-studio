@@ -1,8 +1,8 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
-import Canvas from './pages/Canvas'
 import BannerStudio from './pages/BannerStudio'
+import Workflow from './pages/Workflow'
 
 export default function App() {
   return (
@@ -10,7 +10,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/studio" element={<BannerStudio />} />
-        <Route path="/canvas/:instanceId" element={<Canvas />} />
+        <Route path="/canvas/:instanceId" element={<Workflow />} />
       </Routes>
     </BrowserRouter>
   )

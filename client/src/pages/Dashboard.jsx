@@ -16,38 +16,54 @@ function saveInstances(list) {
 
 const COLORS = ['#ff6b2b', '#4da6ff', '#2de88a', '#ff4d6a', '#b47aff', '#ffb82e', '#2dd4bf', '#f472b6']
 
+const WORKFLOW_TYPES = [
+  { id: 'banner-studio', label: 'Banner Studio', icon: '⚡', desc: 'Generate banners from key art using AI + templates' },
+  { id: 'workflow-builder', label: 'Workflow Builder', icon: '◎', desc: 'Drag & drop AI pipeline with nodes' },
+]
+
 export default function Dashboard() {
   const navigate = useNavigate()
   const [instances, setInstances] = useState(loadInstances)
   const [showNew, setShowNew] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
+  const [newType, setNewType] = useState('banner-studio')
 
   useEffect(() => { saveInstances(instances) }, [instances])
 
   const create = () => {
     if (!newName.trim()) return
-    const id = newName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-    if (instances.find(i => i.id === id)) return alert('Instance with this name already exists')
+    const id = Date.now().toString(36) + '-' + newName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
     const color = COLORS[instances.length % COLORS.length]
     setInstances([...instances, {
       id,
       name: newName.trim(),
-      description: newDesc.trim() || 'Banner automation workspace',
+      description: newDesc.trim() || WORKFLOW_TYPES.find(t => t.id === newType)?.desc || '',
+      type: newType,
       color,
       createdAt: new Date().toISOString(),
-      formats: 0,
-      runs: 0,
     }])
     setNewName('')
     setNewDesc('')
+    setNewType('banner-studio')
     setShowNew(false)
   }
 
   const deleteInstance = (id) => {
-    if (!confirm('Delete this workspace?')) return
+    if (!confirm('Delete this workflow?')) return
     setInstances(instances.filter(i => i.id !== id))
   }
+
+  const openWorkflow = (inst) => {
+    if (inst.type === 'banner-studio') {
+      navigate('/studio')
+    } else {
+      navigate(`/canvas/${inst.id}`)
+    }
+  }
+
+  const bannerCount = instances.filter(i => i.type === 'banner-studio').length
+  const builderCount = instances.filter(i => i.type === 'workflow-builder').length
 
   return (
     <div className="dash">
@@ -62,7 +78,7 @@ export default function Dashboard() {
         </div>
         <div className="dash-actions">
           <button className="dash-new-btn" onClick={() => setShowNew(true)}>
-            + New Workspace
+            + New Workflow
           </button>
         </div>
       </header>
@@ -73,15 +89,15 @@ export default function Dashboard() {
         <div className="dash-stats">
           <div className="stat-card">
             <div className="stat-value">{instances.length}</div>
-            <div className="stat-label">Workspaces</div>
+            <div className="stat-label">Workflows</div>
           </div>
           <div className="stat-card">
-            <div className="stat-value">{instances.reduce((s, i) => s + (i.formats || 0), 0)}</div>
-            <div className="stat-label">Total Formats</div>
+            <div className="stat-value">{bannerCount}</div>
+            <div className="stat-label">Banner Studios</div>
           </div>
           <div className="stat-card">
-            <div className="stat-value">{instances.reduce((s, i) => s + (i.runs || 0), 0)}</div>
-            <div className="stat-label">Total Runs</div>
+            <div className="stat-value">{builderCount}</div>
+            <div className="stat-label">Pipelines</div>
           </div>
           <div className="stat-card">
             <div className="stat-value">2</div>
@@ -91,48 +107,47 @@ export default function Dashboard() {
 
         {/* Section header */}
         <div className="dash-section-header">
-          <h2 className="dash-section-title">Workspaces</h2>
+          <h2 className="dash-section-title">Workflows</h2>
           <span className="dash-section-count">{instances.length} active</span>
         </div>
 
         {/* Instance grid */}
         <div className="dash-grid">
-          {instances.map(inst => (
-            <div key={inst.id} className="inst-card" onClick={() => navigate(`/canvas/${inst.id}`)}>
-              <div className="inst-top">
-                <div className="inst-icon" style={{ background: inst.color }}>
-                  {inst.name.charAt(0).toUpperCase()}
+          {instances.map(inst => {
+            const typeMeta = WORKFLOW_TYPES.find(t => t.id === inst.type) || WORKFLOW_TYPES[0]
+            return (
+              <div key={inst.id} className="inst-card" onClick={() => openWorkflow(inst)}>
+                <div className="inst-top">
+                  <div className="inst-icon" style={{ background: inst.color }}>
+                    {inst.name.charAt(0).toUpperCase()}
+                  </div>
+                  <button className="inst-delete" onClick={e => { e.stopPropagation(); deleteInstance(inst.id) }}>×</button>
                 </div>
-                <button className="inst-delete" onClick={e => { e.stopPropagation(); deleteInstance(inst.id) }}>×</button>
+                <div className="inst-name">{inst.name}</div>
+                <div className="inst-desc">{inst.description}</div>
+                <div className="inst-meta">
+                  <span className="inst-type-badge" data-type={inst.type}>
+                    {typeMeta.icon} {typeMeta.label}
+                  </span>
+                  <span className="inst-meta-item">
+                    Created {new Date(inst.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="inst-actions-row">
+                  <button className="inst-action primary" onClick={e => { e.stopPropagation(); openWorkflow(inst) }}>
+                    Open
+                  </button>
+                </div>
               </div>
-              <div className="inst-name">{inst.name}</div>
-              <div className="inst-desc">{inst.description}</div>
-              <div className="inst-meta">
-                <span className="inst-meta-item">
-                  <span className="inst-dot" style={{ background: inst.color }} />
-                  Active
-                </span>
-                <span className="inst-meta-item">
-                  Created {new Date(inst.createdAt).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="inst-actions-row">
-                <button className="inst-action" onClick={e => { e.stopPropagation(); navigate('/studio') }}>
-                  Banner Studio
-                </button>
-                <button className="inst-action primary" onClick={e => { e.stopPropagation(); navigate(`/canvas/${inst.id}`) }}>
-                  Open
-                </button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
 
           {/* Empty state / Add card */}
           {instances.length === 0 && (
             <div className="inst-card empty" onClick={() => setShowNew(true)}>
               <div className="empty-plus">+</div>
-              <div className="inst-name">Create your first workspace</div>
-              <div className="inst-desc">Set up a client workspace to start generating banners</div>
+              <div className="inst-name">Create your first workflow</div>
+              <div className="inst-desc">Set up a Banner Studio or Workflow Builder pipeline</div>
             </div>
           )}
         </div>
@@ -148,12 +163,13 @@ export default function Dashboard() {
             <div className="quick-desc">Generate banners from key art</div>
           </div>
           <div className="quick-card" onClick={() => {
-            if (instances.length === 0) { setShowNew(true); return }
-            navigate(`/canvas/${instances[0].id}`)
+            const builderInst = instances.find(i => i.type === 'workflow-builder')
+            if (!builderInst) { setNewType('workflow-builder'); setShowNew(true); return }
+            navigate(`/canvas/${builderInst.id}`)
           }}>
             <div className="quick-icon">◎</div>
-            <div className="quick-label">Canvas</div>
-            <div className="quick-desc">Visual workflow builder</div>
+            <div className="quick-label">Workflow Builder</div>
+            <div className="quick-desc">Drag & drop AI pipelines</div>
           </div>
           <div className="quick-card disabled">
             <div className="quick-icon">📊</div>
@@ -170,19 +186,36 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* New Instance Modal */}
+      {/* New Workflow Modal */}
       {showNew && (
         <div className="modal-overlay" onClick={() => setShowNew(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3 className="modal-title">New Workspace</h3>
+              <h3 className="modal-title">New Workflow</h3>
               <button className="modal-close" onClick={() => setShowNew(false)}>×</button>
             </div>
             <div className="modal-body">
-              <label className="field-label">Workspace Name</label>
+              <label className="field-label">Workflow Type</label>
+              <div className="type-selector">
+                {WORKFLOW_TYPES.map(t => (
+                  <div
+                    key={t.id}
+                    className={`type-option${newType === t.id ? ' selected' : ''}`}
+                    onClick={() => setNewType(t.id)}
+                  >
+                    <div className="type-option-icon">{t.icon}</div>
+                    <div>
+                      <div className="type-option-label">{t.label}</div>
+                      <div className="type-option-desc">{t.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <label className="field-label" style={{ marginTop: 20 }}>Workflow Name</label>
               <input
                 className="field-input"
-                placeholder="e.g. Amazon Prime Video, Samsung, Netflix..."
+                placeholder="e.g. Amazon Prime Video, Samsung Campaign..."
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
                 autoFocus
@@ -191,7 +224,7 @@ export default function Dashboard() {
               <label className="field-label" style={{ marginTop: 16 }}>Description</label>
               <input
                 className="field-input"
-                placeholder="Optional — what is this workspace for?"
+                placeholder="Optional — what is this workflow for?"
                 value={newDesc}
                 onChange={e => setNewDesc(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && create()}
@@ -199,7 +232,7 @@ export default function Dashboard() {
             </div>
             <div className="modal-footer">
               <button className="modal-cancel" onClick={() => setShowNew(false)}>Cancel</button>
-              <button className="modal-create" disabled={!newName.trim()} onClick={create}>Create Workspace</button>
+              <button className="modal-create" disabled={!newName.trim()} onClick={create}>Create Workflow</button>
             </div>
           </div>
         </div>
@@ -313,12 +346,22 @@ export default function Dashboard() {
 
         .inst-name { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; margin-bottom: 6px; }
         .inst-desc { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin-bottom: 16px; }
-        .inst-meta { display: flex; gap: 16px; margin-bottom: 16px; }
+        .inst-meta { display: flex; gap: 16px; margin-bottom: 16px; align-items: center; }
         .inst-meta-item {
           font-family: var(--mono); font-size: 10px; color: var(--text-muted);
           display: flex; align-items: center; gap: 5px;
         }
-        .inst-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+        .inst-type-badge {
+          font-family: var(--mono); font-size: 10px; padding: 3px 10px;
+          border-radius: 4px; display: inline-flex; align-items: center; gap: 5px;
+        }
+        .inst-type-badge[data-type="banner-studio"] {
+          background: rgba(255,107,43,0.12); color: #ff8f5c;
+        }
+        .inst-type-badge[data-type="workflow-builder"] {
+          background: rgba(124,111,247,0.12); color: #9b8fff;
+        }
 
         .inst-actions-row { display: flex; gap: 8px; }
         .inst-action {
@@ -350,6 +393,19 @@ export default function Dashboard() {
           padding: 2px 6px; border-radius: 3px;
         }
 
+        /* Type selector in modal */
+        .type-selector { display: flex; gap: 10px; margin-bottom: 4px; }
+        .type-option {
+          flex: 1; padding: 14px; border-radius: 8px; border: 1px solid var(--border);
+          background: var(--bg); cursor: pointer; transition: all 0.15s;
+          display: flex; gap: 12px; align-items: flex-start;
+        }
+        .type-option:hover { border-color: var(--border-hover); }
+        .type-option.selected { border-color: var(--accent); background: var(--accent-dim); }
+        .type-option-icon { font-size: 20px; margin-top: 2px; }
+        .type-option-label { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+        .type-option-desc { font-size: 10px; color: var(--text-dim); line-height: 1.4; }
+
         /* Modal */
         .modal-overlay {
           position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
@@ -358,7 +414,7 @@ export default function Dashboard() {
         }
         .modal {
           background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-          width: 440px; max-width: 90vw; overflow: hidden;
+          width: 520px; max-width: 90vw; overflow: hidden;
         }
         .modal-header {
           display: flex; justify-content: space-between; align-items: center;
