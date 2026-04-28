@@ -53,6 +53,7 @@ import { BatchVariantsNode }     from './nodes/BatchVariantsNode'
 import { PlatformPresetsNode }   from './nodes/PlatformPresetsNode'
 import { ApprovalGateNode }      from './nodes/ApprovalGateNode'
 import { ExportPackNode }        from './nodes/ExportPackNode'
+import { CompositorNode }        from './nodes/CompositorNode'
 import { TemplateModeButtons }   from './components/TemplateMode'
 import { AnimatedEdge }          from './components/AnimatedEdge'
 
@@ -94,6 +95,7 @@ const nodeTypes: NodeTypes = {
   platformPresets: PlatformPresetsNode,
   approvalGate: ApprovalGateNode,
   exportPack: ExportPackNode,
+  compositor: CompositorNode,
 }
 
 let nodeIdCounter = 1
@@ -157,6 +159,7 @@ const PALETTE: { category: string; nodes: NodeDef[] }[] = [
       { type: 'iterator',           label: 'Text Iterator',       icon: <Repeat2 size={13} />,    color: '#93c5fd', description: 'Step through a list of prompts' },
       { type: 'filter',             label: 'Filter / Router',     icon: <Filter size={13} />,     color: '#2563eb', description: 'Route on conditions' },
       { type: 'imageTransform',     label: 'Resize / Crop',       icon: <Crop size={13} />,       color: '#d97706', description: 'Resize or crop any image' },
+      { type: 'compositor',         label: 'Compositor',          icon: <Layers size={13} />,     color: '#0ea5e9', description: 'Stack image layers on a sized canvas with backgrounds' },
       { type: 'httpRequest',        label: 'HTTP Request',        icon: <Globe size={13} />,      color: '#0ea5e9', description: 'Call any external API' },
       { type: 'seed',               label: 'Seed',                icon: <Hash size={13} />,       color: '#94a3b8', description: 'Fixed or random seed value' },
     ],
@@ -196,6 +199,7 @@ const QUICK_ADD: { label: string; type: string; icon: React.ReactNode; color: st
   { label: 'GPT Image 1',      type: 'gptImage',    icon: <Image size={12} />,      color: '#f97316' },
   { label: 'Flux / Recraft',   type: 'flux',        icon: <Zap size={12} />,        color: '#fb923c' },
   { label: 'Image Viewer',     type: 'imageDisplay', icon: <LayoutTemplate size={12} />, color: '#84cc16' },
+  { label: 'Compositor',       type: 'compositor',  icon: <Layers size={12} />,     color: '#0ea5e9' },
   { label: 'Sticky Note',      type: 'note',        icon: <StickyNote size={12} />, color: '#cbd5e1' },
 ]
 
@@ -419,14 +423,19 @@ function AppContent() {
   // Close context menu on any click or right-click elsewhere
   useEffect(() => {
     if (!ctxMenu) return
-    const close = () => setCtxMenu(null)
-    window.addEventListener('mousedown', close, true)
-    window.addEventListener('contextmenu', close, true)
-    window.addEventListener('scroll', close, true)
+    const closeIfOutside = (e: Event) => {
+      const target = e.target as HTMLElement | null
+      if (target && target.closest && target.closest('.canvas-ctx-menu')) return
+      setCtxMenu(null)
+    }
+    const closeAlways = () => setCtxMenu(null)
+    window.addEventListener('mousedown', closeIfOutside, true)
+    window.addEventListener('contextmenu', closeIfOutside, true)
+    window.addEventListener('scroll', closeAlways, true)
     return () => {
-      window.removeEventListener('mousedown', close, true)
-      window.removeEventListener('contextmenu', close, true)
-      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('mousedown', closeIfOutside, true)
+      window.removeEventListener('contextmenu', closeIfOutside, true)
+      window.removeEventListener('scroll', closeAlways, true)
     }
   }, [ctxMenu])
 
@@ -736,8 +745,15 @@ function AppContent() {
           maxZoom={4}
           fitView
           fitViewOptions={{ padding: 0.2 }}
-          panOnDrag={tool === 'pan' ? [0, 1, 2] : [1, 2]}
+          panOnDrag={[0, 1, 2]}
           selectionOnDrag={tool === 'select'}
+          selectionKeyCode={tool === 'select' ? 'Shift' : null}
+          panOnScroll
+          panOnScrollSpeed={0.7}
+          zoomOnScroll={false}
+          zoomOnPinch
+          zoomActivationKeyCode={['Meta', 'Control']}
+          panActivationKeyCode="Space"
           defaultEdgeOptions={{
             animated: false,
           }}

@@ -3,17 +3,32 @@
   "configurations": [
     {
       "name": "server",
-      "runtimeExecutable": "/opt/homebrew/bin/node",
+      "runtimeExecutable": "/Users/home/.local/node/bin/node",
       "runtimeArgs": ["--env-file=.env", "server/index.mjs"],
       "port": 3001
     },
     {
       "name": "client",
-      "runtimeExecutable": "/opt/homebrew/bin/npm",
+      "runtimeExecutable": "/Users/home/.local/node/bin/npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "autoPort": true,
       "cwd": "client"
+    },
+    {
+      "name": "aiflow-server",
+      "runtimeExecutable": "/Users/home/.local/node/bin/node",
+      "runtimeArgs": ["server.js"],
+      "port": 3001,
+      "cwd": "aiflow"
+    },
+    {
+      "name": "aiflow-client",
+      "runtimeExecutable": "/Users/home/.local/node/bin/npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5173,
+      "autoPort": true,
+      "cwd": "aiflow"
     }
   ]
 }
